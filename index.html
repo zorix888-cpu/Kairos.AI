@@ -1,46 +1,388 @@
-import streamlit as st
-from openai import OpenAI
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MiniGPT — Chat + Code (cloud AI)</title>
 
-st.set_page_config(page_title="My AI", page_icon="🤖")
-st.title("🤖 My AI")
-st.caption("Ask me anything. I can make mistakes, so check important answers.")
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" />
 
-api_key = st.sidebar.text_input("Your OpenAI API key", type="password")
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel-2: #1c2230; --border: #2a3240;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2f81f7; --accent-2: #3fb950;
+    --user-bubble: #1f6feb33; --bot-bubble: #21262d; --code-bg: #0b0f14;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  header .logo { width: 20px; height: 20px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .spacer { flex: 1; }
+  header label { font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+  header input, header select {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 7px; font-size: 12px; min-width: 110px;
+  }
+  button {
+    cursor: pointer; border: 1px solid var(--border); background: var(--panel-2);
+    color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 12px;
+  }
+  button:hover { background: #232b3a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #4a93ff; }
+  button.ghost { background: transparent; }
+  main { flex: 1; display: flex; gap: 1px; min-height: 0; background: var(--border); }
+  .col { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+  #chatCol { flex: 1.2; } #codeCol { flex: 1; }
+  .col-head { padding: 7px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--panel); }
+  #messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: flex; gap: 10px; max-width: 100%; }
+  .msg .avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+  .msg.user .avatar { background: var(--accent); color: #fff; }
+  .msg.bot .avatar { background: var(--accent-2); color: #06210f; }
+  .bubble { background: var(--bot-bubble); padding: 10px 14px; border-radius: 12px; line-height: 1.55; font-size: 14px; overflow-x: auto; max-width: 760px; }
+  .msg.user .bubble { background: var(--user-bubble); }
+  .bubble pre { margin: 8px 0; }
+  .bubble code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .bubble :not(pre) > code { background: #00000055; padding: 2px 5px; border-radius: 4px; }
+  .bubble pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow-x: auto; }
+  .bubble pre code { background: none; padding: 0; }
+  .copy-btn { float: right; margin: -4px -4px 6px 8px; font-size: 11px; padding: 3px 7px; background: #2a3240; border: 1px solid var(--border); color: var(--muted); }
+  .typing { display: inline-flex; gap: 4px; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing span:nth-child(2){ animation-delay: .2s; } .typing span:nth-child(3){ animation-delay: .4s; }
+  @keyframes blink { 0%,60%,100%{ opacity:.2 } 30%{ opacity:1 } }
+  #composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); background: var(--panel); }
+  #composer textarea { flex: 1; resize: none; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.4; max-height: 160px; min-height: 44px; }
+  #composer textarea:focus { outline: none; border-color: var(--accent); }
+  #codeToolbar { display: flex; gap: 8px; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  #codeToolbar select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+  #editor { flex: 1; width: 100%; border: none; resize: none; background: var(--code-bg); color: #d6e1ef; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; padding: 12px; min-height: 0; }
+  #editor:focus { outline: none; }
+  #runOutput { height: 34%; overflow-y: auto; background: #05080c; border-top: 1px solid var(--border); padding: 10px 12px; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; color: #b9c4d4; white-space: pre-wrap; }
+  #runOutput .err { color: #ff7b72; } #runOutput .sys { color: var(--muted); }
+  .controls-row { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--panel); }
+  #status { font-size: 11px; color: var(--muted); }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 50; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 820px) { main { flex-direction: column; } #chatCol, #codeCol { flex: 1; } }
+</style>
+</head>
+<body>
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+<header>
+  <h1><span class="logo"></span> MiniGPT</h1>
+  <label>Provider
+    <select id="provider">
+      <option value="groq">Groq (free)</option>
+      <option value="openai">OpenAI</option>
+      <option value="openrouter">OpenRouter</option>
+      <option value="custom">Custom</option>
+    </select>
+  </label>
+  <label>API Key
+    <input id="apiKey" type="password" placeholder="paste key" autocomplete="off" />
+  </label>
+  <label>Model
+    <input id="modelName" placeholder="model" />
+  </label>
+  <div class="spacer"></div>
+  <span id="status">● enter key</span>
+  <button class="ghost" id="newChatBtn">New</button>
+</header>
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
+<main>
+  <section class="col" id="chatCol">
+    <div class="col-head">💬 Chat — cloud AI</div>
+    <div id="messages"></div>
+    <div id="composer">
+      <textarea id="userInput" placeholder="Ask anything… (Enter to send, Shift+Enter newline)" rows="1"></textarea>
+      <button class="primary" id="sendBtn">Send</button>
+      <button class="ghost" id="stopBtn" style="display:none;">Stop</button>
+    </div>
+  </section>
 
-if not api_key:
-    st.info("Enter your OpenAI API key in the sidebar to start.")
-    st.stop()
+  <section class="col" id="codeCol">
+    <div class="col-head">⌨️ Code — write &amp; run</div>
+    <div id="codeToolbar">
+      <select id="langSelect">
+        <option value="javascript">JavaScript (in-browser)</option>
+        <option value="python">Python (Pyodide)</option>
+      </select>
+      <button class="ghost" id="sampleBtn">Sample</button>
+    </div>
+    <textarea id="editor" spellcheck="false"></textarea>
+    <div id="runOutput"><span class="sys">Output appears here…</span></div>
+    <div class="controls-row">
+      <button class="primary" id="runBtn">▶ Run</button>
+      <button class="ghost" id="clearOutBtn">Clear</button>
+      <button class="ghost" id="toChatBtn">To chat →</button>
+    </div>
+  </section>
+</main>
 
-if prompt := st.chat_input("Ask me anything"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+<div class="toast" id="toast"></div>
 
-    with st.chat_message("user"):
-        st.write(prompt)
+<script>
+const $ = (id) => document.getElementById(id);
 
-    with st.chat_message("assistant"):
-        try:
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Be helpful and accurate. If you don't know, say so.",
-                    },
-                    *st.session_state.messages[-20:],
-                ],
-            )
-            answer = response.choices[0].message.content or "I couldn't make an answer."
-            st.write(answer)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": answer}
-            )
-        except Exception:
-            st.error("Couldn't get an answer. Check your API key and connection.")
+const PROVIDERS = {
+  groq:      { base: "https://api.groq.com/openai/v1",      model: "llama-3.3-70b-versatile" },
+  openai:    "https://api.openai.com/v1",          model: "gpt-4o-mini" },
+  openrouter:{ base: "https://openrouter.ai/api/v1",       model: "openai/gpt-4o-mini" },
+  custom:    { base: "",                                   model: "" }
+};
+
+/* ---------- Persist settings on phone ---------- */
+function saveSettings() {
+  const p = $("provider").value;
+  localStorage.setItem("mg_provider", p);
+  localStorage.setItem("mg_key", $("apiKey").value);
+  localStorage.setItem("mg_model", $("modelName").value);
+  const cfg = PROVIDERS[p];
+  if (cfg && cfg.base && !$("modelName").value) $("modelName").value = cfg.model;
+}
+function loadSettings() {
+  $("provider").value   = localStorage.getItem("mg_provider") || "groq";
+  $("apiKey").value     = localStorage.getItem("mg_key") || "";
+  const cfg = PROVIDERS[$("provider").value];
+  $("modelName").value  = localStorage.getItem("mg_model") || (cfg ? cfg.model : "");
+}
+$("provider").addEventListener("change", () => {
+  const cfg = PROVIDERS[$("provider").value];
+  if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
+  saveSettings(); updateStatus();
+});
+$("apiKey").addEventListener("input", saveSettings);
+$("modelName").addEventListener("input", saveSettings);
+
+function apiBase() {
+  const p = $("provider").value;
+  return (PROVIDERS[p] && PROVIDERS[p].base) || "";
+}
+function updateStatus() {
+  const st = $("status");
+  if (!$("apiKey").value) { st.textContent = "● enter key"; st.style.color = "#ff7b72"; }
+  else { st.textContent = "● ready"; st.style.color = "var(--accent-2)"; }
+}
+
+/* ---------- Toast ---------- */
+let toastTimer;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------- Markdown ---------- */
+function renderMarkdown(text) {
+  if (window.marked) { marked.setOptions({ breaks: true, gfm: true }); return marked.parse(text); }
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+}
+
+/* ---------- Chat ---------- */
+const messagesEl = $("messages");
+let conversation = [];
+let abortCtrl = null;
+
+function addMessage(role) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + role;
+  const avatar = document.createElement("div");
+  avatar.className = "avatar"; avatar.textContent = role === "user" ? "U" : "AI";
+  const bubble = document.createElement("div"); bubble.className = "bubble";
+  wrap.appendChild(avatar); wrap.appendChild(bubble); messagesEl.appendChild(wrap);
+  return bubble;
+}
+function appendStreaming(bubble, text) {
+  bubble.innerHTML = renderMarkdown(text);
+  bubble.querySelectorAll("pre code").forEach(applyHighlight);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function applyHighlight(block) {
+  if (window.hljs) { try { hljs.highlightElement(block); } catch (e) {} }
+  const pre = block.parentElement;
+  if (pre && !pre.querySelector(".copy-btn")) {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn"; btn.textContent = "copy";
+    btn.onclick = () => { navigator.clipboard.writeText(block.textContent); btn.textContent = "copied!"; setTimeout(() => (btn.textContent = "copy"), 1200); };
+    pre.insertBefore(btn, pre.firstChild);
+  }
+}
+
+async function sendMessage() {
+  const input = $("userInput");
+  const text = input.value.trim();
+  if (!text) return;
+  if (!$("apiKey").value) { toast("Paste your API key first (top bar)"); return; }
+  input.value = ""; input.style.height = "auto";
+  addMessage("user"); conversation.push({ role: "user", content: text });
+
+  const bubble = addMessage("bot");
+  const typing = document.createElement("div");
+  typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
+  bubble.appendChild(typing);
+  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "inline-block";
+  abortCtrl = new AbortController();
+
+  const model = $("modelName").value || PROVIDERS[$("provider").value].model;
+  let full = "";
+  try {
+    const res = await fetch(apiBase() + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + $("apiKey").value },
+      body: JSON.stringify({ model, messages: conversation, stream: true }),
+      signal: abortCtrl.signal,
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      throw new Error("HTTP " + res.status + " — " + errTxt.slice(0, 120));
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        let line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") break;
+        try {
+          const obj = JSON.parse(data);
+          const delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+          if (delta) full += delta;
+        } catch (e) {}
+      }
+      typing.remove();
+      appendStreaming(bubble, full);
+    }
+    conversation.push({ role: "assistant", content: full });
+  } catch (e) {
+    typing.remove();
+    if (e.name === "AbortError") {
+      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
+      conversation.push({ role: "assistant", content: full });
+    } else {
+      bubble.innerHTML = "<span class='err'>Error: " + e.message + "</span>";
+    }
+  } finally {
+    $("sendBtn").style.display = "inline-block"; $("stopBtn").style.display = "none"; abortCtrl = null;
+  }
+}
+
+$("sendBtn").onclick = sendMessage;
+$("stopBtn").onclick = () => { if (abortCtrl) abortCtrl.abort(); };
+$("newChatBtn").onclick = () => { conversation = []; messagesEl.innerHTML = ""; toast("New chat"); };
+$("userInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+$("userInput").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px"; });
+
+/* ---------- Code runner ---------- */
+const samples = {
+  javascript: `// JavaScript runs directly in your browser (sandboxed iframe)
+console.log("Hello from MiniGPT!");
+
+const nums = [1, 2, 3, 4, 5];
+const squares = nums.map(n => n * n);
+console.log("Squares:", squares);`,
+  python: `# Python runs via Pyodide (loaded from CDN on first run)
+import math
+print("Hello from Python!")
+nums = [1, 2, 3, 4, 5]
+print("Squares:", [n*n for n in nums])`
+};
+function setOutput(text, cls = "") {
+  const out = $("runOutput");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = text; out.appendChild(line); out.scrollTop = out.scrollHeight;
+}
+function clearOutput() { $("runOutput").innerHTML = '<span class="sys">Output appears here…</span>'; }
+
+$("langSelect").onchange = loadSample;
+$("sampleBtn").onclick = loadSample;
+function loadSample() { $("editor").value = samples[$("langSelect").value] || ""; }
+
+$("clearOutBtn").onclick = clearOutput;
+$("runBtn").onclick = runCode;
+async function runCode() {
+  const lang = $("langSelect").value;
+  const code = $("editor").value;
+  clearOutput();
+  if (!code.trim()) { setOutput("Nothing to run.", "sys"); return; }
+  if (lang === "javascript") runJS(code);
+  else if (lang === "python") {
+    setOutput("Loading Pyodide… (first run only)", "sys");
+    try { await loadPyodideRuntime(); setOutput("Python ready:", "sys"); await runPython(code); }
+    catch (e) { setOutput("Error: " + e.message, "err"); }
+  }
+}
+function runJS(code) {
+  const html = `<!DOCTYPE html><html><head></head><body><script>
+    const send = (type, args) => parent.postMessage(
+      { __mg: true, type, text: args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') }, '*');
+    console.log = (...a) => send('log', a);
+    console.error = (...a) => send('err', a);
+    window.onerror = (m) => send('err', [m]);
+    try { (async () => { ${code} })().catch(e => send('err', [e.message])); }
+    catch (e) { send('err', [e.message]); }
+  <\/script></body></html>`;
+  const ifr = document.createElement("iframe");
+  ifr.style.display = "none"; ifr.sandbox = "allow-scripts"; document.body.appendChild(ifr);
+  ifr.srcdoc = html;
+  const handler = (ev) => {
+    if (!ev.data || !ev.data.__mg) return;
+    setOutput(ev.data.text, ev.data.type === "err" ? "err" : "");
+  };
+  window.addEventListener("message", handler);
+  setTimeout(() => { ifr.remove(); window.removeEventListener("message", handler); }, 8000);
+}
+let pyodideReady = null;
+function loadPyodideRuntime() {
+  if (pyodideReady) return pyodideReady;
+  pyodideReady = new Promise((resolve, reject) => {
+    if (window.loadPyodide) return resolve(window.loadPyodide);
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js";
+    s.onload = async () => { try { window._py = await loadPyodide(); resolve(window.loadPyodide); } catch (e) { reject(e); } };
+    s.onerror = () => reject(new Error("Failed to load Pyodide CDN (offline?)"));
+    document.head.appendChild(s);
+  });
+  return pyodideReady;
+}
+async function runPython(code) {
+  const loadPyodide = await loadPyodideRuntime();
+  const py = window._py || await loadPyodide();
+  py.setStdout({ batched: (s) => setOutput(s) });
+  py.setStderr({ batched: (s) => setOutput(s, "err") });
+  try { await py.runPythonAsync(code); } catch (e) { setOutput(String(e), "err"); }
+}
+$("toChatBtn").onclick = () => {
+  const lang = $("langSelect").value;
+  const code = $("editor").value.trim();
+  if (!code) { toast("Editor is empty"); return; }
+  $("userInput").value = "Here's my " + lang + " code:\n\n```" + lang + "\n" + code + "\n```\n\nWhat does it do and how can I improve it?";
+  $("userInput").focus();
+};
+
+/* ---------- Boot ---------- */
+loadSettings();
+loadSample();
+updateStatus();
+</script>
+</body>
+</html>
