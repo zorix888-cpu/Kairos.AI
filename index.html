@@ -301,11 +301,78 @@ header h1 {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ================= GALAXY OVERDRIVE VISUAL SYSTEM ================= */
+:root {
+  --space-0: #02030a;
+  --space-1: #080b20;
+  --space-2: #11143b;
+  --nebula-cyan: #3af5ff;
+  --nebula-violet: #9b6dff;
+  --nebula-pink: #ff4fc5;
+  --gold: #ffe58a;
+  --glass: rgba(8, 11, 32, .58);
+  --line-glow: rgba(87, 185, 255, .38);
+}
+body {
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(58, 245, 255, .11), transparent 44%),
+    radial-gradient(ellipse at 15% 20%, rgba(155, 109, 255, .12), transparent 35%),
+    var(--bg);
+}
+body::before, body::after {
+  content: ""; position: fixed; inset: -20%; pointer-events: none; z-index: 0;
+  opacity: .34; mix-blend-mode: screen;
+}
+body::before { background: conic-gradient(from 30deg at 65% 44%, transparent 0deg, rgba(112,76,255,.11) 38deg, transparent 86deg, rgba(39,242,255,.09) 130deg, transparent 180deg); animation: galaxyDrift 32s linear infinite; }
+body::after { background: radial-gradient(ellipse at 50% 50%, transparent 0 28%, rgba(17,9,64,.18) 48%, transparent 68%); animation: galaxyPulse 10s ease-in-out infinite; }
+@keyframes galaxyDrift { to { transform: rotate(360deg) scale(1.08); } }
+@keyframes galaxyPulse { 50% { transform: scale(1.08); opacity: .58; } }
+#vfx { opacity: 1; filter: saturate(1.15) contrast(1.08); }
+#vfxFx { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.cosmic-scanlines { position: absolute; inset: 0; opacity: .045; background: repeating-linear-gradient(0deg, transparent 0 3px, #fff 4px, transparent 5px); mix-blend-mode: overlay; }
+.cosmic-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.42) 100%); }
+.comet { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 3px var(--nebula-cyan); animation: cometFly var(--flight) linear forwards; transform: rotate(var(--angle)); }
+.comet::after { content: ""; position: absolute; right: 2px; top: 50%; width: 100px; height: 1px; transform: translateY(-50%); transform-origin: right; background: linear-gradient(90deg, transparent, rgba(58,245,255,.6)); }
+@keyframes cometFly { from { left: var(--sx); top: var(--sy); opacity: 0; } 10% { opacity: 1; } to { left: var(--ex); top: var(--ey); opacity: 0; } }
+.ripple { position: absolute; width: 20px; height: 20px; margin: -10px; border: 1px solid var(--nebula-cyan); border-radius: 50%; animation: ripple .8s ease-out forwards; box-shadow: 0 0 18px var(--nebula-cyan); }
+@keyframes ripple { to { width: 180px; height: 180px; margin: -90px; opacity: 0; border-width: 0; } }
+.starburst { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 12px 3px var(--nebula-violet); animation: starburst .65s var(--ease) forwards; }
+@keyframes starburst { to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
+header, #composer, #tabbar, #codeToolbar, .code-controls { background: linear-gradient(135deg, rgba(11,14,39,.72), rgba(12,17,46,.44)); border-color: var(--line-glow); }
+header { box-shadow: 0 10px 35px rgba(0,0,0,.24), inset 0 -1px rgba(110,230,255,.08); }
+header::after { content: "GALAXY LINK // ONLINE"; font: 9px ui-monospace, monospace; letter-spacing: 1.5px; color: var(--nebula-cyan); opacity: .7; position: absolute; left: 16px; top: calc(100% + 4px); pointer-events: none; }
+.logo { border-radius: 50%; background: conic-gradient(from 120deg, var(--nebula-cyan), var(--nebula-violet), var(--nebula-pink), var(--nebula-cyan)); box-shadow: 0 0 12px var(--nebula-cyan), 0 0 28px rgba(155,109,255,.6); }
+.logo::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--nebula-cyan) 12%, #15124d 45%, #03040d 72%); box-shadow: inset -3px -4px 7px #000; }
+.logo::after { border-radius: 50%; background: conic-gradient(transparent, rgba(255,255,255,.75), transparent 20%); animation: logoSweep 2.7s linear infinite; }
+@keyframes logoSweep { to { transform: rotate(360deg); } }
+header h1 { letter-spacing: 2px; text-shadow: 0 0 22px var(--nebula-cyan); }
+#welcome { background: radial-gradient(ellipse at center, rgba(10,14,50,.12), rgba(2,3,10,.82) 80%); }
+#welcome .big { font-size: clamp(44px, 14vw, 78px); letter-spacing: 6px; text-shadow: 0 0 12px var(--nebula-cyan), 0 0 40px var(--nebula-violet), 0 0 90px rgba(255,79,197,.35); animation: cosmicTitle 5s ease-in-out infinite; }
+@keyframes cosmicTitle { 50% { transform: translateY(-10px) scale(1.025); filter: hue-rotate(20deg); } }
+#welcome p { text-shadow: 0 0 12px rgba(58,245,255,.28); }
+.sug, .pill-btn, .icon-btn { box-shadow: inset 0 0 15px rgba(65,170,255,.05), 0 0 0 transparent; }
+.sug:hover, .pill-btn:hover, .icon-btn:hover { border-color: var(--nebula-cyan); box-shadow: 0 0 16px rgba(58,245,255,.23); }
+.msg.bot .avatar { background: radial-gradient(circle at 35% 25%, #fff, var(--nebula-cyan) 16%, var(--nebula-violet) 48%, #28144d 78%); color: #050616; }
+.msg.bot .bubble { background: linear-gradient(135deg, rgba(20,24,59,.82), rgba(14,22,48,.64)); box-shadow: inset 0 0 24px rgba(58,245,255,.035), 0 0 18px rgba(61,112,255,.07); }
+.msg.user .bubble { background: linear-gradient(135deg, #2679ff, #864cff 55%, #d43fa8); }
+.send { background: conic-gradient(from 190deg, var(--nebula-cyan), var(--nebula-violet), var(--nebula-pink), var(--nebula-cyan)); box-shadow: 0 0 22px rgba(58,245,255,.35); }
+.send::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid rgba(255,255,255,.45); }
+#status.ok::before { background: var(--nebula-cyan); box-shadow: 0 0 12px var(--nebula-cyan); }
+#runOutput, #editor { background: rgba(2,4,15,.86); }
+#tabbar button.active { color: var(--nebula-cyan); text-shadow: 0 0 10px var(--nebula-cyan); }
+#sheet { background: linear-gradient(160deg, rgba(14,18,53,.96), rgba(6,8,24,.98)); box-shadow: 0 -15px 70px rgba(48,110,255,.16); }
+.space-chip { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 4px 8px; border: 1px solid rgba(58,245,255,.25); border-radius: 99px; color: var(--nebula-cyan); font: 10px ui-monospace, monospace; letter-spacing: 1px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+
 </style>
 </head>
 <body>
 
 <canvas id="vfx"></canvas>
+
+<div id="vfxFx" aria-hidden="true"><div class="cosmic-scanlines"></div><div class="cosmic-vignette"></div></div>
+
 
 <div id="app">
   <header>
@@ -958,6 +1025,83 @@ $("vfxToggle").onclick = () => {
   startVFX();
 };
 window.addEventListener("resize", () => { if (vfxOn) initVFX(); else resizeCanvas(); });
+
+
+/* ================= GALAXY OVERDRIVE INTERACTION + AUDIO ================= */
+const GalaxyFX = (() => {
+  const fx = document.getElementById("vfxFx");
+  let audioCtx = null, master = null, ambient = null, audioOn = localStorage.getItem("lm_audio") !== "off";
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function ensureAudio() {
+    if (!audioOn) return null;
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      master = audioCtx.createGain(); master.gain.value = .045; master.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+  function tone(freq=440, duration=.08, type="sine", volume=.16, slide=0) {
+    const ac = ensureAudio(); if (!ac) return;
+    const now = ac.currentTime, osc = ac.createOscillator(), gain = ac.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, now); osc.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), now + duration);
+    gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(volume, now + .012); gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+    osc.connect(gain); gain.connect(master); osc.start(now); osc.stop(now + duration + .03);
+  }
+  function click() { tone(520, .055, "triangle", .12, 150); }
+  function send() { tone(220, .12, "sine", .18, 380); setTimeout(() => tone(660, .16, "triangle", .11, -120), 55); }
+  function success() { tone(392, .1, "sine", .12, 80); setTimeout(() => tone(784, .16, "sine", .1, 120), 70); }
+  function error() { tone(170, .22, "sawtooth", .11, -90); }
+  function burst(x, y, amount=18) {
+    if (!fx || reduced) return;
+    const rect = fx.getBoundingClientRect();
+    for (let i=0; i<amount; i++) {
+      const p = document.createElement("i"); p.className = "starburst"; p.style.left = `${x - rect.left}px`; p.style.top = `${y - rect.top}px`;
+      const a = (Math.PI * 2 * i / amount) + (Math.random()-.5)*.4, d = 35 + Math.random()*105;
+      p.style.setProperty("--dx", `${Math.cos(a)*d}px`); p.style.setProperty("--dy", `${Math.sin(a)*d}px`); fx.appendChild(p); setTimeout(() => p.remove(), 750);
+    }
+  }
+  function ripple(x, y) {
+    if (!fx || reduced) return; const r = document.createElement("i"); r.className = "ripple"; r.style.left = `${x}px`; r.style.top = `${y}px`; fx.appendChild(r); setTimeout(() => r.remove(), 900);
+  }
+  function comet() {
+    if (!fx || reduced || !vfxOn) return;
+    const c = document.createElement("i"); c.className = "comet"; const side = Math.random() > .5;
+    c.style.setProperty("--sx", side ? `${Math.random()*100}%` : `${Math.random()*20}%`); c.style.setProperty("--sy", `${Math.random()*50}%`);
+    c.style.setProperty("--ex", side ? `${Math.random()*20}%` : `${80+Math.random()*20}%`); c.style.setProperty("--ey", `${50+Math.random()*50}%`);
+    c.style.setProperty("--flight", `${1.2+Math.random()*1.8}s`); c.style.setProperty("--angle", `${side ? 145 : 35}deg`); fx.appendChild(c); setTimeout(() => c.remove(), 3400);
+  }
+  function startAmbient() {
+    if (!audioOn || ambient || !ensureAudio()) return;
+    const ac = audioCtx, osc = ac.createOscillator(), gain = ac.createGain(); osc.type = "sine"; osc.frequency.value = 55; gain.gain.value = .0001; osc.connect(gain); gain.connect(master); osc.start(); gain.gain.exponentialRampToValueAtTime(.012, ac.currentTime + 2); ambient = { osc, gain };
+  }
+  function setAudio(value) { audioOn = value; localStorage.setItem("lm_audio", value ? "on" : "off"); if (!value && ambient) { ambient.gain.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime + .2); ambient.osc.stop(audioCtx.currentTime + .25); ambient = null; } }
+  document.addEventListener("pointerdown", e => { ensureAudio(); startAmbient(); if (e.target.closest("button")) { click(); burst(e.clientX, e.clientY, 10); } else ripple(e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) send(); });
+  window.addEventListener("resize", () => { if (vfxOn) comet(); });
+  setInterval(comet, 5200);
+  return { click, send, success, error, burst, ripple, setAudio, isAudioOn: () => audioOn };
+})();
+
+/* cosmic telemetry + richer action feedback */
+const originalToast = toast;
+toast = function(message) { originalToast(message); if (/error|couldn't|network|failed|HTTP/i.test(message)) GalaxyFX.error(); else GalaxyFX.success(); };
+const originalSendMessage = sendMessage;
+sendMessage = async function(textOverride) { GalaxyFX.send(); return originalSendMessage(textOverride); };
+const originalRunCode = runCode;
+runCode = async function() { GalaxyFX.click(); const result = await originalRunCode(); GalaxyFX.success(); return result; };
+
+/* add an audio switch without changing the original settings flow */
+const audioField = document.createElement("div"); audioField.className = "field"; audioField.style.cssText = "flex-direction:row;align-items:center;justify-content:space-between;";
+audioField.innerHTML = '<label style="margin:0">Space audio</label><button class="pill-btn" id="audioToggle">On</button>';
+const vfxField = document.getElementById("vfxToggle").parentElement; vfxField.parentElement.insertBefore(audioField, vfxField);
+const audioToggle = document.getElementById("audioToggle"); audioToggle.textContent = GalaxyFX.isAudioOn() ? "On" : "Off";
+audioToggle.onclick = () => { GalaxyFX.setAudio(!GalaxyFX.isAudioOn()); audioToggle.textContent = GalaxyFX.isAudioOn() ? "On" : "Off"; toast(GalaxyFX.isAudioOn() ? "Space audio online" : "Space audio muted"); };
+
+/* Point the interface toward the new identity. */
+document.title = "HAKIMI // GALAXY LINK";
+document.querySelector("header h1").innerHTML = "HAKIMI <span class='space-chip'>GALAXY LINK</span>";
+document.querySelector("#welcome .big").textContent = "HAKIMI ✦";
 
 /* ---------- Boot ---------- */
 loadSettings();
