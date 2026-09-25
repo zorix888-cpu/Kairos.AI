@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0d14" />
-<title>Lumina — AI Chat + Code</title>
+<title>HAKIMI — AI Chat + Code</title>
 
 <!-- Markdown + syntax highlighting (CDN, graceful fallback) -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -13,7 +13,7 @@
 
 <style>
 /* =========================================================================
-   LUMINA — a phone-first AI chat + code playground
+   HAKIMI — a phone-first AI chat + code playground
    Themes are switched via [data-theme="..."] on <html>.
    ========================================================================= */
 
@@ -55,6 +55,13 @@
   --surface-3: #e2e8f4; --border: #d3dae8; --text: #14181f; --muted: #5b6678;
   --accent: #4a6cff; --accent-2: #7a4dff; --accent-grad: linear-gradient(135deg, #4a6cff, #7a4dff);
   --glow: rgba(74,108,255,.3); --code-bg: #f3f5fb;
+}
+/* ---- Theme: Luxury (gold) ---- */
+[data-theme="luxury"] {
+  --bg: #0d0b08; --bg-2: #141009; --surface: #16130d; --surface-2: #1f1a11;
+  --surface-3: #2a2316; --border: #3a2f1c; --text: #f6eede; --muted: #b6a684;
+  --accent: #e9cf8f; --accent-2: #d4af37; --accent-grad: linear-gradient(135deg, #f7e7b0, #d4af37);
+  --glow: rgba(212,175,55,.4); --code-bg: #0a0805;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -109,6 +116,7 @@ header h1 {
 #status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 #status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 #status.ok::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+#ownerBadge { display: none; font-size: 12px; color: var(--accent); border: 1px solid var(--border); padding: 3px 10px; border-radius: 20px; background: var(--surface-2); white-space: nowrap; box-shadow: 0 0 12px -4px var(--glow); }
 .icon-btn {
   width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
   background: var(--surface-2); color: var(--text); font-size: 18px;
@@ -132,9 +140,10 @@ header h1 {
 }
 #welcome.hide { opacity: 0; pointer-events: none; }
 #welcome .big {
-  font-size: 40px; font-weight: 800;
+  font-size: 44px; font-weight: 700; letter-spacing: 1px;
+  font-family: "Georgia", "Times New Roman", serif;
   background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: floaty 5s ease-in-out infinite;
+  animation: floaty 5s ease-in-out infinite; text-shadow: 0 0 30px var(--glow);
 }
 @keyframes floaty { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-10px);} }
 #welcome p { color: var(--muted); max-width: 320px; line-height: 1.6; font-size: 14px; }
@@ -301,8 +310,9 @@ header h1 {
 <div id="app">
   <header>
     <div class="logo"></div>
-    <h1>Lumina</h1>
+    <h1>HAKIMI</h1>
     <div class="spacer"></div>
+    <span id="ownerBadge">👑 Owner</span>
     <span id="status">enter key</span>
     <button class="icon-btn" id="themeBtn" title="Theme">🎨</button>
     <button class="icon-btn" id="gearBtn" title="Settings">⚙️</button>
@@ -312,13 +322,13 @@ header h1 {
     <!-- CHAT -->
     <section class="screen active" id="chatScreen">
       <div id="welcome">
-        <div class="big">Lumina ✦</div>
+        <div class="big">HAKIMI ✦</div>
         <p>Your pocket AI. Chat with a free local-class model, or write &amp; run code — all in one beautiful, animated space.</p>
         <div class="sugs" id="sugs"></div>
       </div>
       <div id="messages"></div>
       <div id="composer">
-        <textarea id="userInput" placeholder="Message Lumina…" rows="1"></textarea>
+        <textarea id="userInput" placeholder="Message HAKIMI…" rows="1"></textarea>
         <button class="send" id="sendBtn">➤</button>
         <button class="stop" id="stopBtn" style="display:none;">■</button>
       </div>
@@ -375,6 +385,11 @@ header h1 {
   </div>
 
   <div class="field">
+    <label>Owner name (you)</label>
+    <input id="ownerName" placeholder="e.g. Alex — the owner" autocomplete="off" />
+  </div>
+
+  <div class="field">
     <label>Model</label>
     <div class="model-row">
       <input id="modelName" list="modelList" placeholder="tap Get" autocomplete="off" />
@@ -388,8 +403,27 @@ header h1 {
   </div>
 
   <div class="field">
+    <label>Reply language</label>
+    <select id="replyLang">
+      <option value="auto">Auto (match my language)</option>
+      <option value="en">English</option>
+      <option value="es">Spanish</option>
+      <option value="fr">French</option>
+      <option value="ar">Arabic</option>
+      <option value="zh">Chinese</option>
+      <option value="hi">Hindi</option>
+      <option value="ru">Russian</option>
+      <option value="pt">Portuguese</option>
+      <option value="de">German</option>
+      <option value="ja">Japanese</option>
+      <option value="ko">Korean</option>
+    </select>
+  </div>
+
+  <div class="field">
     <label>Theme</label>
     <div class="theme-row" id="themeRow">
+      <div class="theme-dot" data-theme="luxury" style="background:linear-gradient(135deg,#f7e7b0,#d4af37)"></div>
       <div class="theme-dot" data-theme="moonlight" style="background:linear-gradient(135deg,#6c8cff,#9a7bff)"></div>
       <div class="theme-dot" data-theme="aurora" style="background:linear-gradient(135deg,#2ee6c9,#4cc9ff)"></div>
       <div class="theme-dot" data-theme="sunset" style="background:linear-gradient(135deg,#ff7eb6,#ffb86c)"></div>
@@ -423,7 +457,7 @@ header h1 {
 
 <script>
 /* =========================================================================
-   LUMINA — logic
+   HAKIMI — logic
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
 
@@ -441,12 +475,53 @@ const SUGGESTIONS = [
   "Debug this JavaScript snippet"
 ];
 
+/* ---------- Owner + multilingual brain ---------- */
+const SYSTEM_PROMPT = "You are HAKIMI, a highly capable AI assistant owned and operated by the user (the owner of this app). " +
+  "You understand and can communicate fluently in EVERY human language. " +
+  "Always reply in the same language the user writes in, unless they ask otherwise. " +
+  "Be helpful, accurate, friendly, and concise.";
+
+// Lightweight script detection so the model replies in the user's language
+function detectScript(text) {
+  const tests = [
+    ["ar", /[؀-ۿݐ-ݿ]|\u0600-\u06FF|\u0750-\u077F/],
+    ["he", /[\u0590-\u05FF]/],
+    ["ru", /[\u0400-\u04FF]/],
+    ["hi", /[\u0900-\u097F]/],
+    ["zh", /[一-鿿\u3400-\u4DBF]/],
+    ["ja", /[\u3040-\u30FF]/],
+    ["ko", /[\uAC00-\uD7AF]/]
+  ];
+  for (const [code, re] of tests) { if (re.test(text)) return code; }
+  return "en";
+}
+const RTL_LANGS = new Set(["ar", "he", "fa", "ur"]);
+
+function applyOwner() {
+  const owner = $("ownerName").value.trim();
+  $("ownerBadge").style.display = owner ? "inline-block" : "none";
+  const p = $("welcome").querySelector("p");
+  if (owner) {
+    p.innerHTML = "Welcome back, <b>" + owner.replace(/</g, "&lt;") + "</b> 👑 — your private AI. " +
+      "Chat in any language or write &amp; run code, all in one luxe space.";
+  } else {
+    p.innerHTML = "Your pocket AI. Chat with a free model, or write &amp; run code — all in one beautiful, animated space.";
+  }
+}
+
+function accentRGB2() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim();
+  const m = v.match(/\d+/g); return m ? m.slice(0, 3).join(",") : "154,123,255";
+}
+
 /* ---------- Settings persistence ---------- */
 function saveSettings() {
   const p = $("provider").value;
   localStorage.setItem("lm_provider", p);
   localStorage.setItem("lm_key", $("apiKey").value);
   localStorage.setItem("lm_model", $("modelName").value);
+  localStorage.setItem("lm_owner", $("ownerName").value);
+  localStorage.setItem("lm_lang", $("replyLang").value);
   localStorage.setItem("lm_theme", document.documentElement.getAttribute("data-theme") || "moonlight");
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
@@ -456,6 +531,8 @@ function loadSettings() {
   $("apiKey").value    = localStorage.getItem("lm_key") || "";
   const cfg = PROVIDERS[$("provider").value];
   $("modelName").value = localStorage.getItem("lm_model") || (cfg ? cfg.model : "");
+  $("ownerName").value = localStorage.getItem("lm_owner") || "";
+  $("replyLang").value = localStorage.getItem("lm_lang") || "auto";
   const theme = localStorage.getItem("lm_theme") || "moonlight";
   setTheme(theme);
 }
@@ -466,6 +543,8 @@ $("provider").addEventListener("change", () => {
 });
 $("apiKey").addEventListener("input", saveSettings);
 $("modelName").addEventListener("input", saveSettings);
+$("ownerName").addEventListener("input", () => { saveSettings(); applyOwner(); });
+$("replyLang").addEventListener("change", saveSettings);
 
 function apiBase() { const p = $("provider").value; return (PROVIDERS[p] && PROVIDERS[p].base) || ""; }
 function updateStatus() {
@@ -483,7 +562,7 @@ function setTheme(name) {
   localStorage.setItem("lm_theme", name);
 }
 $("themeBtn").onclick = () => {
-  const order = ["moonlight", "aurora", "sunset", "mono"];
+  const order = ["luxury", "moonlight", "aurora", "sunset", "mono"];
   const cur = document.documentElement.getAttribute("data-theme") || "moonlight";
   setTheme(order[(order.indexOf(cur) + 1) % order.length]);
 };
@@ -604,9 +683,12 @@ async function sendMessage(textOverride) {
   if (!$("apiKey").value) { toast("Open ⚙️ and paste your API key"); openSheet(); return; }
   if (!$("modelName").value) { toast("Open ⚙️ → 🔄 Get to pick a model"); openSheet(); return; }
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
-  addMessage("user"); conversation.push({ role: "user", content: text });
+  const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
+  const detected = detectScript(text);
+  userBubble.parentElement.dir = RTL_LANGS.has(detected) ? "rtl" : "ltr";
 
   const bubble = addMessage("bot");
+  bubble.parentElement.dir = RTL_LANGS.has(detected) ? "rtl" : "ltr";
   const typing = document.createElement("div");
   typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
   bubble.appendChild(typing);
@@ -614,13 +696,21 @@ async function sendMessage(textOverride) {
   abortCtrl = new AbortController();
 
   const model = $("modelName").value;
+  const langPref = $("replyLang").value;
+  let sysText = SYSTEM_PROMPT;
+  if (langPref === "auto") {
+    if (detected !== "en") sysText += " The user is writing in " + detected + "; reply in that language.";
+  } else {
+    sysText += " Reply in " + langPref + ".";
+  }
+  const payload = [{ role: "system", content: sysText }].concat(conversation);
   let full = "";
   try {
     const res = await fetch(apiBase() + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + $("apiKey").value },
       // max_tokens cap keeps requests safely under free-tier per-minute limits
-      body: JSON.stringify({ model, messages: conversation, stream: true, max_tokens: 2000, temperature: 0.7 }),
+      body: JSON.stringify({ model, messages: payload, stream: true, max_tokens: 2000, temperature: 0.7 }),
       signal: abortCtrl.signal,
     });
     if (!res.ok) {
@@ -690,10 +780,10 @@ function buildSuggestions() {
 
 /* ---------- Export / clear chat ---------- */
 $("exportBtn").onclick = () => {
-  const txt = conversation.map(m => (m.role === "user" ? "You: " : "Lumina: ") + m.content).join("\n\n");
+  const txt = conversation.map(m => (m.role === "user" ? "You: " : "HAKIMI: ") + m.content).join("\n\n");
   const blob = new Blob([txt], { type: "text/plain" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = "lumina-chat.txt"; a.click();
+  a.href = URL.createObjectURL(blob); a.download = "hakimi-chat.txt"; a.click();
   toast("Chat exported");
 };
 $("clearChatBtn").onclick = () => confirmDialog("Clear conversation?", "This removes all messages from this session.", () => {
@@ -704,7 +794,7 @@ $("clearChatBtn").onclick = () => confirmDialog("Clear conversation?", "This rem
 /* ---------- Code runner ---------- */
 const samples = {
   javascript: `// Runs live in your browser (sandboxed iframe)
-console.log("Hello from Lumina!");
+console.log("Hello from HAKIMI!");
 
 const nums = [1, 2, 3, 4, 5];
 const squares = nums.map(n => n * n);
@@ -810,10 +900,12 @@ function resizeCanvas() {
 function initVFX() {
   resizeCanvas();
   const w = window.innerWidth, h = window.innerHeight;
+  const a = accentRGB();
+  const a2 = accentRGB2();
   orbs = [
-    { x: w * .2, y: h * .25, r: 220, c: "108,140,255", vx: .12, vy: .08 },
-    { x: w * .8, y: h * .7,  r: 260, c: "154,123,255", vx: -.1, vy: .1 },
-    { x: w * .6, y: h * .2,  r: 180, c: "46,230,201",  vx: .08, vy: -.12 }
+    { x: w * .2, y: h * .25, r: 230, c: a,  vx: .12, vy: .08 },
+    { x: w * .8, y: h * .7,  r: 260, c: a2, vx: -.1, vy: .1 },
+    { x: w * .6, y: h * .2,  r: 190, c: a,  vx: .08, vy: -.12 }
   ];
   const count = Math.min(60, Math.floor((w * h) / 22000));
   particles = [];
@@ -869,6 +961,7 @@ window.addEventListener("resize", () => { if (vfxOn) initVFX(); else resizeCanva
 
 /* ---------- Boot ---------- */
 loadSettings();
+applyOwner();
 loadSample();
 buildSuggestions();
 updateStatus();
