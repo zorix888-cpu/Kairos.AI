@@ -2,7 +2,7 @@
 <html lang="en" data-theme="luxury">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#000000" />
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -13,6 +13,7 @@
 <title>HAKIMI</title>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <script src="https://js.puter.com/v2/"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" />
@@ -150,6 +151,7 @@ header h1 {
 #micBtn.listening { background: var(--danger); border-color: var(--danger); color: #fff; }
 .replay-btn { float: right; margin: -6px -8px 6px 6px; font-size: 13px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 3px 8px; }
 .replay-btn:active { background: var(--surface-3); color: var(--text); }
+.icon-btn:focus-visible, .tool:focus-visible, .send:focus-visible, .stop:focus-visible, .pill-btn:focus-visible, .sug:focus-visible, .replay-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .typing { display: inline-flex; gap: 5px; padding: 8px 2px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
 
@@ -274,7 +276,7 @@ header h1 {
 
 <div id="app">
   <header>
-    <button class="icon-btn" id="menuBtn" title="Chats">&#9776;</button>
+    <button class="icon-btn" id="menuBtn" title="Chats" aria-label="Open chat history">&#9776;</button>
     <div class="emblem"><div class="cube">
       <div class="face f-front"></div><div class="face f-back"></div>
       <div class="face f-right"></div><div class="face f-left"></div>
@@ -284,7 +286,7 @@ header h1 {
     <div class="spacer"></div>
     <span id="ownerBadge">Owner</span>
     <span id="status">Free</span>
-    <button class="icon-btn" id="gearBtn" title="Settings">&#9881;</button>
+    <button class="icon-btn" id="gearBtn" title="Settings" aria-label="Open settings">&#9881;</button>
   </header>
 
   <div id="screens">
@@ -306,8 +308,8 @@ header h1 {
     <div id="attachBar"><img class="thumb" id="attachThumb" alt="attached photo" /><span class="attach-name" id="attachName"></span><button class="attach-x" id="attachClear" title="Remove photo">&#10005;</button></div>
     <div id="composerRow">
       <textarea id="userInput" placeholder="Message HAKIMI" rows="1"></textarea>
-      <button class="send" id="sendBtn">&#8594;</button>
-      <button class="stop" id="stopBtn" style="display:none;">&#9632;</button>
+      <button class="send" id="sendBtn" aria-label="Send message">&#8594;</button>
+      <button class="stop" id="stopBtn" style="display:none;" aria-label="Stop current response">&#9632;</button>
     </div>
     <div class="toolbar">
       <button class="tool" id="imgBtn" title="Toggle image mode">🎨 Image</button>
@@ -342,7 +344,7 @@ header h1 {
 <aside id="drawer">
   <div class="drawer-head">
     <h2>Chats</h2>
-    <button class="icon-btn" id="closeDrawer">&#10005;</button>
+    <button class="icon-btn" id="closeDrawer" aria-label="Close chat history">&#10005;</button>
   </div>
   <button id="newChatBtn">+ New chat</button>
   <div id="chatList"></div>
@@ -369,6 +371,12 @@ header h1 {
       <option value="openrouter">OpenRouter</option>
       <option value="custom">Custom (OpenAI-compatible)</option>
     </select>
+  </div>
+
+  <div class="field" id="proxyField">
+    <label>API proxy (optional, for public sites)</label>
+    <input id="proxyBase" placeholder="https://your-server.com (empty = direct)" autocomplete="off" />
+    <p class="hint">Personal use: leave empty (keys stay in your browser). Public site: point this at YOUR backend that mirrors the provider's API paths and adds keys server-side — keys then never ship to browsers.</p>
   </div>
 
   <div class="field" id="keyField">
@@ -462,7 +470,11 @@ header h1 {
       <option value="de">German</option>
       <option value="ja">Japanese</option>
       <option value="ko">Korean</option>
+      <option value="fa">Persian</option>
+      <option value="ur">Urdu</option>
+      <option value="ps">Pashto</option>
     </select>
+    <p class="hint">Auto = English mic; HAKIMI detects your language from what you say. Pick a language to lock the mic + replies to it.</p>
   </div>
 
   <div class="field">
@@ -497,13 +509,13 @@ header h1 {
 const $ = (id) => document.getElementById(id);
 
 const PROVIDERS = {
-  pollinations: { kind: "openai", base: "https://text.pollinations.ai", chatPath: "/openai", modelsPath: "/models", model: "openai-fast", free: true },
-  puter:     { kind: "puter",    base: "",                                 model: "claude-opus-4-6", free: true },
-  anthropic: { kind: "anthropic", base: "https://api.anthropic.com/v1",     model: "claude-sonnet-4-5" },
-  groq:      { kind: "openai",    base: "https://api.groq.com/openai/v1",   model: "llama-4-scout-17b-16e-instruct" },
-  openai:    { kind: "openai",    base: "https://api.openai.com/v1",        model: "gpt-4o-mini" },
-  openrouter:{ kind: "openai",    base: "https://openrouter.ai/api/v1",     model: "openai/gpt-4o-mini" },
-  custom:    { kind: "openai",    base: "",                                 model: "" }
+  pollinations: { kind: "openai", base: "https://text.pollinations.ai", chatPath: "/openai", modelsPath: "/models", model: "openai-fast", free: true, fallbacks: ["openai-fast", "openai"] },
+  puter:     { kind: "puter",    base: "",                                 model: "claude-opus-4-6", free: true, fallbacks: [] },
+  anthropic: { kind: "anthropic", base: "https://api.anthropic.com/v1",     model: "claude-3-5-haiku-20241022", fallbacks: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"] },
+  groq:      { kind: "openai",    base: "https://api.groq.com/openai/v1",   model: "llama-3.3-70b-versatile", fallbacks: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
+  openai:    { kind: "openai",    base: "https://api.openai.com/v1",        model: "gpt-4o-mini", fallbacks: ["gpt-4o-mini", "gpt-4o"] },
+  openrouter:{ kind: "openai",    base: "https://openrouter.ai/api/v1",     model: "openai/gpt-4o-mini", fallbacks: [] },
+  custom:    { kind: "openai",    base: "",                                 model: "", fallbacks: [] }
 };
 
 const SUGGESTIONS = [
@@ -534,14 +546,22 @@ const SYSTEM_PROMPT = "You are HAKIMI, a code-first personal AI with a sense of 
   "that is priority #1: find the bug, explain it simply, and show the fix in clean code blocks. Help them build real projects " +
   "step by step. Be accurate — never invent APIs or syntax; if unsure, say so and reason it through. " +
   "FUNNY (20%): keep it fun — witty one-liners, playful roasts when they joke around, light teasing like a friend. Humor seasons " +
-  "the reply but NEVER replaces the answer: crack the joke, then deliver the help. HARMOR RULE: harmless jokes, playful roasts, " +
+  "the reply but NEVER replaces the answer: crack the joke, then deliver the help. HUMOR RULE: harmless jokes, playful roasts, " +
   "teasing between friends/family, savage-but-friendly comebacks, and everyday comedy are ALWAYS allowed — respond playfully and " +
   "never refuse them. Only refuse genuinely harmful requests: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
+  "FICTION RULE: fictional roleplay is ALWAYS allowed — mafia boss, movie villains, rival hackers, fantasy characters. It is pretend play, never real crime: stay in character, keep it fun, never refuse, never lecture. Only draw the line at real step-by-step instructions for real-world wrongdoing. " +
   "OTHER (10%): answer general questions, give advice, and help with everyday stuff like a smart, easygoing friend. " +
   "STYLE: talk like a real person, not a corporate bot. Match their energy, be direct and calm, never stiff, never start every " +
-  "reply with 'Certainly' or 'Of course'. You understand EVERY human language — always reply in the same language the user writes in unless asked otherwise. Be helpful, accurate, and concise.";
+  "reply with 'Certainly' or 'Of course'. Answer directly: no unnecessary apologies, no generic refusal phrases, no over-explaining " +
+  "simple questions. Be concise when the question is simple; go deep only for real technical problems. Never pretend an API, model, " +
+  "or feature works when it doesn't — say what's actually happening. You understand EVERY human language — always reply in the same " +
+  "language the user writes in unless asked otherwise. Be helpful, accurate, and concise.";
 
 function detectScript(text) {
+  // Arabic-script siblings: distinctive letters first (heuristic, not perfect)
+  if (/[\u0681\u0696\u06BC\u06D0\u06CD]/.test(text)) return "ps"; // Pashto: ښ ږ ڼ ې ۍ
+  if (/[\u0679\u0688\u0691\u06BA\u06BE]/.test(text)) return "ur"; // Urdu: ٹ ڈ ڑ ں ھ
+  if (/[\u06AF\u0686\u067E\u0698]/.test(text)) return "fa";        // Persian: گ چ پ ژ
   const tests = [
     ["ar", /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/],
     ["he", /[\u0590-\u05FF]/],
@@ -554,16 +574,19 @@ function detectScript(text) {
   for (const [code, re] of tests) { if (re.test(text)) return code; }
   return "en";
 }
-const RTL_LANGS = new Set(["ar", "he", "fa", "ur"]);
+const RTL_LANGS = new Set(["ar", "he", "fa", "ur", "ps"]);
 
 function applyOwner() {
   const owner = $("ownerName").value.trim();
   $("ownerBadge").style.display = owner ? "inline-block" : "none";
   const tag = $("welcome").querySelector(".tagline");
+  tag.textContent = "";
   if (owner) {
-    tag.innerHTML = "Welcome back, <b>" + owner.replace(/</g, "&lt;") + "</b>. Converse in any language, with clarity and restraint.";
+    tag.appendChild(document.createTextNode("Welcome back, "));
+    const b = document.createElement("b"); b.textContent = owner; tag.appendChild(b);
+    tag.appendChild(document.createTextNode(" — your code buddy with jokes."));
   } else {
-    tag.innerHTML = "Your private AI. Converse in any language, with clarity and restraint.";
+    tag.textContent = "Your code buddy with jokes. 70% code, 20% laughs, 10% whatever you need.";
   }
 }
 
@@ -582,8 +605,9 @@ function toggleKeyField() {
 /* ---------- Auth headers (provider-aware) ---------- */
 function authHeaders() {
   const p = $("provider").value;
-  const k = $("apiKey").value;
-  if (p === "pollinations") return {};
+  const k = ($("apiKey").value || "").trim();
+  if (p === "pollinations" || p === "puter") return {};
+  if (!k) return p === "anthropic" ? { "anthropic-version": "2023-06-01" } : {};
   if (p === "anthropic") {
     return {
       "x-api-key": k,
@@ -610,6 +634,7 @@ function saveSettings() {
   localStorage.setItem("lm_voice", $("voicePick").value);
   localStorage.setItem("lm_tts", $("ttsEngine").value);
   localStorage.setItem("lm_eleven", $("elevenKey").value);
+  localStorage.setItem("lm_proxy", $("proxyBase").value);
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
  } catch (e) {}
@@ -629,8 +654,12 @@ function loadSettings() {
   $("voicePick").value = localStorage.getItem("lm_voice") || "auto";
   $("ttsEngine").value = localStorage.getItem("lm_tts") || "system";
   $("elevenKey").value = localStorage.getItem("lm_eleven") || "";
+  $("proxyBase").value = localStorage.getItem("lm_proxy") || "";
 }
 $("provider").addEventListener("change", () => {
+  try { if (callActive) endCall(true); } catch (e) {}
+  activeReq++;
+  sending = false;
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
   stopSpeaking();
   const cfg = PROVIDERS[$("provider").value];
@@ -648,15 +677,19 @@ $("voiceRate").addEventListener("change", saveSettings);
 $("voicePick").addEventListener("change", () => { cachedVoice = null; saveSettings(); });
 $("ttsEngine").addEventListener("change", () => { saveSettings(); toggleEleven(); });
 $("elevenKey").addEventListener("input", saveSettings);
+$("proxyBase").addEventListener("input", () => { saveSettings(); updateStatus(); });
 
-function apiBase() { const p = $("provider").value; return (PROVIDERS[p] && PROVIDERS[p].base) || ""; }
-function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return (c.base || "") + (c.chatPath || "/chat/completions"); }
-function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return (c.base || "") + (c.modelsPath || "/models"); }
+function proxySet() { try { return (($("proxyBase").value || "").trim().length > 0); } catch (e) { return false; } }
+function effBase(c) { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); if (px && c && c.kind === "openai") return px; return (c && c.base) || ""; }
+function apiBase() { const p = $("provider").value; return effBase(PROVIDERS[p] || {}); }
+function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.chatPath || "/chat/completions"); }
+function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.modelsPath || "/models"); }
+function elevenEndpoint() { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); return (px || "https://api.elevenlabs.io") + "/v1/text-to-speech/pNInz6obpgDQGcFmaJgB?output_format=mp3_44100_128"; }
 function updateStatus() {
   const st = $("status");
   const _ucfg = PROVIDERS[$("provider").value] || {};
   if (_ucfg.free) { st.textContent = "Free"; st.classList.add("ok"); return; }
-  if (!$("apiKey").value) { st.textContent = "Enter key"; st.classList.remove("ok"); }
+  if (!$("apiKey").value && !proxySet()) { st.textContent = "Enter key"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
 
@@ -687,13 +720,33 @@ function confirmDialog(title, text, onOk) {
 
 /* ---------- Markdown ---------- */
 function renderMarkdown(text) {
-  if (window.marked) { marked.setOptions({ breaks: true, gfm: true }); return marked.parse(text); }
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+  let out;
+  if (window.marked) {
+    try { marked.setOptions({ breaks: true, gfm: true }); out = marked.parse(text || ""); }
+    catch (e) { out = ""; }
+  } else {
+    out = (text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+  }
+  if (window.DOMPurify) {
+    try { out = DOMPurify.sanitize(out, { FORBID_TAGS: ["style", "form", "input", "button", "video", "audio", "source", "canvas"], FORBID_ATTR: ["style"] }); }
+    catch (e) {}
+  }
+  return out;
 }
 function sanitizeRendered(root) {
+  // Layer 2 (always runs, even if the DOMPurify CDN failed): strip executable attributes/elements.
+  root.querySelectorAll("*").forEach(el => {
+    const attrs = el.attributes ? Array.prototype.slice.call(el.attributes) : [];
+    attrs.forEach(a => {
+      const n = (a.name || "").toLowerCase();
+      if (n.indexOf("on") === 0 || n === "style" || n === "formaction" || n === "xlink:href") el.removeAttribute(a.name);
+    });
+  });
+  root.querySelectorAll("script, iframe, object, embed, form, style, link, meta, base, video, audio, source, track, canvas, applet, input, button, select, textarea").forEach(n => n.remove());
   root.querySelectorAll("a").forEach(a => {
-    const href = (a.getAttribute("href") || "").trim().toLowerCase();
-    if (!href.startsWith("http://") && !href.startsWith("https://") && !href.startsWith("mailto:")) {
+    const href = (a.getAttribute("href") || "").trim();
+    const low = href.toLowerCase();
+    if (!low.startsWith("http://") && !low.startsWith("https://") && !low.startsWith("mailto:")) {
       a.removeAttribute("href");
     } else {
       a.setAttribute("target", "_blank");
@@ -701,10 +754,60 @@ function sanitizeRendered(root) {
     }
   });
   root.querySelectorAll("img").forEach(im => {
-    const src = (im.getAttribute("src") || "").trim().toLowerCase();
-    if (!src.startsWith("http://") && !src.startsWith("https://") && !src.startsWith("data:image/")) im.remove();
+    im.removeAttribute("srcset");
+    const src = (im.getAttribute("src") || "").trim();
+    const low = src.toLowerCase();
+    const ok = low.startsWith("http://") || low.startsWith("https://") ||
+      /^data:image\/(png|jpe?g|gif|webp|bmp);/i.test(src);
+    if (!ok) im.remove();
   });
-  root.querySelectorAll("script, iframe, object, embed, form").forEach(n => n.remove());
+}
+
+/* ---------- Shared audit helpers ---------- */
+function showError(bubble, msg) {
+  bubble.innerHTML = "";
+  const s = document.createElement("span");
+  s.className = "err";
+  s.textContent = "\u26A0\uFE0F " + msg;
+  bubble.appendChild(s);
+}
+function httpLabel(st) {
+  if (st === 401) return "Invalid API key (401) — check your key";
+  if (st === 403) return "Access forbidden (403) — key lacks permission";
+  if (st === 404) return "Model or endpoint not found (404)";
+  if (st === 408 || st === 504) return "Request timed out — try again";
+  if (st === 429) return "Rate limited (429) — wait a bit and resend";
+  if (st >= 500) return "Provider server error (" + st + ") — try again in a bit";
+  return "HTTP " + st;
+}
+function isNetErr(e) {
+  return !!e && (e instanceof TypeError || /load failed|failed to fetch|network request failed|networkerror|\bcors\b|socket hang|econnreset/i.test(e.message || ""));
+}
+function sseDelta(obj, isAnthropic) {
+  if (obj && obj.type === "error" && obj.error) {
+    const E = new Error((obj.error && obj.error.message) || "Provider error");
+    E.__provErr = true;
+    throw E;
+  }
+  if (isAnthropic) {
+    return (obj && obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") ? obj.delta.text : null;
+  }
+  return obj && obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+}
+function dropMsg(m) {
+  try {
+    const i = conversation.indexOf(m);
+    if (i >= 0) conversation.splice(i, 1);
+  } catch (e) {}
+}
+function fillModelList(ids) {
+  const dl = $("modelList");
+  dl.innerHTML = "";
+  (ids || []).forEach(id => {
+    const o = document.createElement("option");
+    o.value = id;
+    dl.appendChild(o);
+  });
 }
 
 /* ---------- Fetch models (FIX: Puter needs NO key — check it FIRST) ---------- */
@@ -712,8 +815,19 @@ async function fetchModels() {
   const btn = $("fetchModelsBtn"); btn.disabled = true; btn.textContent = "…";
   // Puter branch FIRST — no API key required
   if ($("provider").value === "puter") {
-    const ids = PUTER_MODELS;
-    $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
+    let ids = PUTER_MODELS.slice();
+    try {
+      if (typeof puter !== "undefined" && puter.ai && typeof puter.ai.models === "function") {
+        const listed = await Promise.race([
+          Promise.resolve(puter.ai.models()).catch(() => null),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 12000))
+        ]);
+        const arr = Array.isArray(listed) ? listed : ((listed && (listed.models || listed.data)) || []);
+        const got = arr.map(m => (typeof m === "string" ? m : (m && (m.id || m.name)))).filter(Boolean);
+        if (got.length) ids = got;
+      }
+    } catch (e) {}
+    fillModelList(ids);
     const cur = $("modelName").value;
     if (!cur || !ids.includes(cur)) $("modelName").value = ids[0];
     saveSettings();
@@ -723,9 +837,14 @@ async function fetchModels() {
   }
   // Other providers DO need a key
   const _fcfg = PROVIDERS[$("provider").value] || {};
-  if (!_fcfg.free && !$("apiKey").value) { toast("Enter your API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
+  if (!_fcfg.free && !$("apiKey").value && !proxySet()) { toast("Enter your API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
   try {
-    const res = await fetch(modelsUrl(), { headers: authHeaders() });
+    const mCtrl = new AbortController();
+    const mTo = setTimeout(() => { try { mCtrl.abort(); } catch (e) {} }, 15000);
+    let res;
+    try {
+      res = await fetch(modelsUrl(), { headers: authHeaders(), signal: mCtrl.signal });
+    } finally { clearTimeout(mTo); }
     if (!res.ok) {
       let msg = "HTTP " + res.status;
       if (res.status === 401) msg = "API key rejected (401) — check your key is correct";
@@ -736,12 +855,12 @@ async function fetchModels() {
     const _arr = Array.isArray(j) ? j : (j.data || []);
     const ids = _arr.map(m => (typeof m === "string" ? m : (m.id || m.name))).filter(Boolean);
     if (!ids.length) throw new Error("no models returned");
-    $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
+    fillModelList(ids);
     const cur = $("modelName").value;
-    const fastPrefs = ["openai-fast", "openai", "mistral", "llama"];
+    const fastPrefs = ["openai-fast", "openai"];
     const preferred =
       ($("provider").value === "pollinations" && fastPrefs.map(p => ids.find(id => id === p)).find(Boolean)) ||
-      ids.find(id => /claude-sonnet|claude-3|llama-4-scout|gpt-4o|llama-3\.1-8b/i.test(id)) ||
+      ids.find(id => /claude-sonnet|claude-3|llama-3|llama-4|gpt-4o/i.test(id)) ||
       ids.find(id => !/qwen3\.8|deepseek-r1/i.test(id)) ||
       ids[0];
     if (!cur || !ids.includes(cur)) $("modelName").value = preferred;
@@ -749,8 +868,8 @@ async function fetchModels() {
     toast("Models loaded — using " + $("modelName").value);
   } catch (e) {
     if ($("provider").value === "pollinations") {
-      const ids = ["openai", "openai-fast", "mistral", "llama"];
-      $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
+      const ids = ["openai-fast", "openai"];
+      fillModelList(ids);
       if (!ids.includes($("modelName").value)) $("modelName").value = ids[0];
       saveSettings();
       toast("Using free models — " + $("modelName").value);
@@ -768,6 +887,7 @@ const messagesEl = $("messages");
 let conversation = [];
 let abortCtrl = null;
 let sending = false;
+let activeReq = 0;
 let welcomeHidden = false;
 
 /* ---------- Saved chats (auto-saved in this browser) ---------- */
@@ -784,12 +904,52 @@ try {
 } catch (e) { chats = []; }
 
 function persistChats() {
+  const slim = chats.slice(0, 30).map(c => ({
+    id: c.id, title: c.title, updatedAt: c.updatedAt,
+    messages: (c.messages || []).slice(-60).map(m => {
+      const o = { role: m.role, content: m.content };
+      if (m.img && m.img.length < 3000) o.img = m.img;
+      if (m.thumb) o.thumb = m.thumb;
+      if (m.gen) o.gen = true;
+      return o;
+    })
+  }));
   try {
-    const slim = chats.slice(0, 30).map(c => ({
-      id: c.id, title: c.title, updatedAt: c.updatedAt,
-      messages: (c.messages || []).slice(-60).map(m => ({ role: m.role, content: m.content }))
-    }));
     localStorage.setItem("lm_chats", JSON.stringify(slim));
+  } catch (e) {
+    try {
+      const tiny = slim.slice(0, 5).map(c => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, messages: c.messages.slice(-20) }));
+      localStorage.setItem("lm_chats", JSON.stringify(tiny));
+      toast("Storage full — kept only recent chats");
+    } catch (e2) {
+      toast("Storage full — history kept for this session only");
+    }
+  }
+}
+function makeThumb(dataUrl, maxDim) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const s = Math.min(1, (maxDim || 320) / Math.max(img.width || 1, img.height || 1));
+          const cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(img.width * s));
+          cv.height = Math.max(1, Math.round(img.height * s));
+          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+          resolve(cv.toDataURL("image/jpeg", 0.7));
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch (e) { resolve(null); }
+  });
+}
+async function attachThumb(msg, dataUrl) {
+  if (!msg || !dataUrl || dataUrl.length < 3000) return;
+  try {
+    const t = await makeThumb(dataUrl, 320);
+    if (t) { msg.thumb = t; persistChats(); }
   } catch (e) {}
 }
 function apiMessages(limit) {
@@ -835,15 +995,28 @@ function loadChat(id) {
     conversation.forEach(m => {
       const b = addMessage(m.role === "user" ? "user" : "bot");
       if (m.role === "user") {
-        if (m.img) {
+        const src = m.img || m.thumb;
+        if (src) {
           b.innerHTML = "";
           const th = document.createElement("img");
-          th.className = "attached"; th.src = m.img; th.alt = "photo";
+          th.className = "attached"; th.src = src; th.alt = "photo";
           b.appendChild(th);
           const cap = document.createElement("div");
           cap.textContent = m.content;
           b.appendChild(cap);
         } else { b.textContent = m.content; }
+      } else if (m.gen) {
+        if (m.img) {
+          b.innerHTML = "";
+          const gi = document.createElement("img");
+          gi.className = "gen"; gi.src = m.img; gi.alt = m.content || "generated image";
+          b.appendChild(gi);
+          const gc = document.createElement("div");
+          gc.textContent = m.content || "";
+          b.appendChild(gc);
+        } else {
+          b.innerHTML = "<span class='sys'>\uD83D\uDDBC\uFE0F Generated image unavailable after reload</span>";
+        }
       } else { appendStreaming(b, m.content); }
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -979,15 +1152,18 @@ async function sendMessage(textOverride) {
     return;
   }
   const _pcfg = PROVIDERS[$("provider").value] || {};
-  if (!_pcfg.free && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if (!_pcfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
   if (!$("modelName").value) {
     const _def = PROVIDERS[$("provider").value] || {};
     if (_def.model) { $("modelName").value = _def.model; saveSettings(); }
     else { toast("Open settings → Get to pick a model"); openSheet(); return; }
   }
   if (sending) return; sending = true;
+  const myReq = ++activeReq;
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
-  const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
+  const userBubble = addMessage("user");
+  const myUserMsg = { role: "user", content: text };
+  conversation.push(myUserMsg);
   userBubble.textContent = text;
   const detected = detectScript(text);
   userBubble.parentElement.dir = RTL_LANGS.has(detected) ? "rtl" : "ltr";
@@ -999,6 +1175,7 @@ async function sendMessage(textOverride) {
   bubble.appendChild(typing);
   $("sendBtn").style.display = "none"; $("stopBtn").style.display = "grid";
   abortCtrl = new AbortController();
+  const myCtrl = abortCtrl;
 
   const providerKey = $("provider").value;
   const prov = PROVIDERS[providerKey] || PROVIDERS.puter; // FIX: safe fallback
@@ -1019,16 +1196,22 @@ async function sendMessage(textOverride) {
       if (typeof puter === "undefined" || !puter.ai) throw new Error("Puter.js didn't load — check your connection");
       const messages = [{ role: "system", content: sysText }].concat(apiMessages(24));
       const resp = await puter.ai.chat(messages, { model: model, stream: true });
-      for await (const part of resp) {
-        if (part && part.text) full += part.text;
-        if (typing.parentElement) typing.remove();
-        appendStreaming(bubble, full);
+      if (resp && typeof resp[Symbol.asyncIterator] === "function") {
+        for await (const part of resp) {
+          if (myReq !== activeReq) return;
+          if (part && part.text) full += part.text;
+          if (typing.parentElement) typing.remove();
+          renderThrottled(bubble, full);
+        }
+      } else {
+        if (myReq !== activeReq) return;
+        full += extractChatText(resp);
       }
+      if (typing.parentElement) typing.remove();
+      appendStreaming(bubble, full);
     } else {
       const __freeChat = (providerKey === "pollinations" && prov.kind === "openai");
-      const __models = __freeChat
-        ? [model, "openai", "openai-fast", "mistral"].filter((v, i, a) => v && a.indexOf(v) === i)
-        : [model];
+      const __models = [model].concat((prov.fallbacks || []).filter(f => f && f !== model));
       let res = null;
       let __streamDone = false;
       let __netRetried = false;
@@ -1065,12 +1248,20 @@ async function sendMessage(textOverride) {
             E.__status = res.status;
             throw E;
           }
-          if (__tm !== model) { $("modelName").value = __tm; saveSettings(); toast("Free model auto-switched to " + __tm); }
+          if (__tm !== model) { $("modelName").value = __tm; saveSettings(); toast("Primary model unavailable — switched to fallback (" + __tm + ")"); }
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
           let __gotTok = false, __timedOut = false;
           const __wd = setTimeout(() => { if (!__gotTok) { __timedOut = true; try { reader.cancel(); } catch (e) {} } }, 25000);
+          const __isAnth = (prov.kind === "anthropic");
+          const __handleLine = (line) => {
+            if (!line.startsWith("data:")) return;
+            const data = line.slice(5).trim();
+            if (!data || data === "[DONE]") return;
+            const delta = sseDelta(JSON.parse(data), __isAnth);
+            if (delta) { full += delta; if (!__gotTok) { __gotTok = true; clearTimeout(__wd); } }
+          };
           try {
             while (true) {
               const { value, done } = await reader.read();
@@ -1078,25 +1269,14 @@ async function sendMessage(textOverride) {
               buffer += decoder.decode(value, { stream: true });
               let nl;
               while ((nl = buffer.indexOf("\n")) >= 0) {
-                let line = buffer.slice(0, nl).trim();
+                const line = buffer.slice(0, nl).trim();
                 buffer = buffer.slice(nl + 1);
-                if (!line.startsWith("data:")) continue;
-                const data = line.slice(5).trim();
-                if (data === "[DONE]") break;
-                try {
-                  const obj = JSON.parse(data);
-                  let delta = null;
-                  if (prov.kind === "anthropic") {
-                    if (obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") delta = obj.delta.text;
-                  } else {
-                    delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
-                  }
-                  if (delta) { full += delta; if (!__gotTok) { __gotTok = true; clearTimeout(__wd); } }
-                } catch (e) {}
+                try { __handleLine(line); } catch (e) { if (e && e.__provErr) throw e; }
               }
               if (typing.parentElement) typing.remove();
               renderThrottled(bubble, full);
             }
+            if (buffer.trim()) { try { __handleLine(buffer.trim()); } catch (e) { if (e && e.__provErr) throw e; } }
           } catch (re) {
             const __netish = re && re.name !== "AbortError" && (re instanceof TypeError || /load failed|failed to fetch|network/i.test(re.message || ""));
             if (!__netish || __plainTried || prov.kind === "anthropic") throw re;
@@ -1118,12 +1298,20 @@ async function sendMessage(textOverride) {
           } finally { clearTimeout(__wd); }
           appendStreaming(bubble, full);
           if (__timedOut && !full) { const TE = new Error(__freeChat ? "Free server is too slow right now — try again in a bit" : "Request timed out — try again"); TE.__timeout = true; throw TE; }
+          if (__freeChat && __mi < __models.length - 1 && full.length < 250 &&
+              /^\\s*(i['\\u2019]m sorry,?\\s+but\\s+i\\s+can['\\u2019]?t\\s+(help|assist)|i\\s+can['\\u2019]?t\\s+help\\s+with\\s+that|i\\s+cannot\\s+(help|assist)|as an ai\\b|i['\\u2019]?m not able to help)/i.test(full)) {
+            toast("That model refused — trying another…");
+            bubble.innerHTML = "<span class='sys'>(that model refused — trying another…)</span>";
+            full = "";
+            res = null;
+            continue;
+          }
           __streamDone = true;
           break;
         } catch (fe) {
           if (fe.name === "AbortError") throw fe;
-          const __netErr = (fe instanceof TypeError || /load failed|failed to fetch|network request failed|networkerror|cors|socket hang|econnreset/i.test(fe.message || ""));
-          if (__netErr && __freeChat && !__netRetried) {
+          const __netErr = isNetErr(fe);
+          if (__netErr && !__netRetried && myReq === activeReq) {
             __netRetried = true;
             __mi--;
             if (typing.parentElement) { /* keep spinner */ } else { bubble.innerHTML = "<span class='sys'>(connection hiccup — retrying…)</span>"; }
@@ -1133,41 +1321,52 @@ async function sendMessage(textOverride) {
             continue;
           }
           const lastOne = __tm === __models[__models.length - 1];
-          const retryable = __freeChat && !lastOne &&
-            (fe.__timeout ||
-             (fe.__status && [400, 402, 403, 404, 422].indexOf(fe.__status) >= 0) ||
-             /model|tier|anonymous|not found|not available|payment|credit|quota|disabled|unavailable|overloaded/i.test(fe.message || ""));
-          if (!retryable) throw fe;
+          const freeRetry = fe.__timeout ||
+            (fe.__status && [400, 402, 403, 404, 422].indexOf(fe.__status) >= 0) ||
+            /model|tier|anonymous|not found|not available|payment|credit|quota|disabled|unavailable|overloaded/i.test(fe.message || "");
+          const paidRetry = fe.__timeout ||
+            (fe.__status && [404, 429, 500, 502, 503].indexOf(fe.__status) >= 0) ||
+            /not found|does not exist|unavailable|overloaded/i.test(fe.message || "");
+          if (lastOne || (__freeChat ? !freeRetry : !paidRetry)) throw fe;
           res = null;
         }
       }
-      if (!__streamDone) throw new Error("Free server failed — try again in a bit");
+      if (!__streamDone) throw new Error(providerKey === "pollinations" ? "Free server failed — try again in a bit" : "Request failed on every model — try again");
     }
     conversation.push({ role: "assistant", content: full });
     saveCurrentChat();
     if (isAutoRead() && full) speakText(full, detected);
   } catch (e) {
+    if (myReq !== activeReq) return;
     if (typing.parentElement) typing.remove();
     if (e.name === "AbortError") {
-      bubble.innerHTML = "<span class='sys'>(stopped)</span>"; conversation.push({ role: "assistant", content: full }); saveCurrentChat();
-    } else {
-      if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
+      if (full) conversation.push({ role: "assistant", content: full });
       saveCurrentChat();
-      let m = e.message || "Unknown error";
-      const low = m.toLowerCase();
-      if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then send again. No API key needed.";
-      } else if (low.includes("too large") || low.includes("token") || low.includes("otpm") || low.includes("limit")) {
-        m = "This model's free tier caps output tokens. Switch to a higher-limit model (settings → Get) or send a shorter message.";
-      } else if (low.includes("failed to fetch") || low.includes("load failed") || low.includes("networkerror") || low.includes("network request failed") || low.includes("cors")) {
+    } else {
+      dropMsg(myUserMsg);
+      saveCurrentChat();
+      let m = (e && e.message) || "Unknown error";
+      const low = String(m).toLowerCase();
+      if (e && e.__status) {
+        m = ($("provider").value === "pollinations" && e.__status === 429)
+          ? "Free server is busy (1 msg per ~15s) — wait a few seconds and resend."
+          : httpLabel(e.__status);
+      } else if (isNetErr(e)) {
         m = $("provider").value === "pollinations"
           ? "Couldn't reach the free server — check your internet and resend. (Free servers drop connections sometimes; resending usually works.)"
           : "Network error reaching your provider — check your internet or try again.";
+      } else if (providerKey === "puter" && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied") || low.includes("login"))) {
+        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then send again. No API key needed.";
+      } else if (low.includes("too large") || low.includes("output token") || low.includes("max_tokens") || low.includes("otpm") || low.includes("context length") || low.includes("context_length")) {
+        m = "This model's token limit was hit. Switch to a higher-limit model (settings → Get) or send a shorter message.";
       }
-      bubble.innerHTML = "<span class='err'>⚠️ " + m.replace(/</g, "&lt;") + "</span>";
+      showError(bubble, m);
     }
   } finally {
-    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none"; abortCtrl = null; sending = false;
+    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
+    if (abortCtrl === myCtrl) abortCtrl = null;
+    if (myReq === activeReq) sending = false;
   }
 }
 
@@ -1187,26 +1386,46 @@ function pollinationsImageUrl(prompt) {
   return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
     "?width=1024&height=1024&seed=" + seed + "&model=flux&nologo=true&private=true&referrer=hakimi";
 }
-function loadRemoteImage(url) {
+function loadRemoteImage(url, signal) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const timer = setTimeout(() => reject(new Error("Image server timed out — try again")), 120000);
-    img.onload = () => { clearTimeout(timer); resolve(img); };
-    img.onerror = () => { clearTimeout(timer); reject(new Error("Image server failed — try again")); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Image server timed out — try again")); }, 120000);
+    const cleanup = () => { clearTimeout(timer); try { if (signal) signal.removeEventListener("abort", onAbort); } catch (e) {} };
+    const onAbort = () => { cleanup(); try { img.src = ""; } catch (e) {} const E = new Error("stopped"); E.name = "AbortError"; reject(E); };
+    img.onload = () => { cleanup(); resolve(img); };
+    img.onerror = () => { cleanup(); reject(new Error("Image server failed — try again")); };
+    if (signal) {
+      if (signal.aborted) { onAbort(); return; }
+      signal.addEventListener("abort", onAbort);
+    }
     img.src = url;
   });
 }
 
 async function generateImage(prompt) {
   // New pictures = 100% free for everyone (Pollinations). Only EDITS use Puter.
+  if (sending) { toast("Already working — tap Stop first"); return; }
+  sending = true;
+  const myReq = ++activeReq;
+  abortCtrl = new AbortController();
+  const myCtrl = abortCtrl;
+  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "grid";
+  const doneUI = () => {
+    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
+    if (abortCtrl === myCtrl) abortCtrl = null;
+    if (myReq === activeReq) sending = false;
+  };
   const editSrc = pendingImage;
   clearAttachment();
   if (editSrc && (typeof puter === "undefined" || !puter.ai || !puter.ai.txt2img)) {
     toast("Puter.js didn't load — check your connection");
+    doneUI();
     return;
   }
   const userBubble = addMessage("user");
+  const myUserMsg = { role: "user", content: (editSrc ? "🎨✏️ " : "🎨 ") + prompt };
   if (editSrc) {
+    myUserMsg.img = editSrc.dataUrl;
     userBubble.innerHTML = "";
     const th = document.createElement("img");
     th.className = "attached"; th.src = editSrc.dataUrl; th.alt = "source photo";
@@ -1217,29 +1436,31 @@ async function generateImage(prompt) {
   } else {
     userBubble.textContent = "🎨 " + prompt;
   }
+  conversation.push(myUserMsg);
+  if (editSrc) { try { attachThumb(myUserMsg, editSrc.dataUrl); } catch (e0) {} }
   const bubble = addMessage("bot");
   const typing = document.createElement("div");
   typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
   bubble.appendChild(typing);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   try {
-    let img = null;
+    let img = null, remoteUrl = null;
     if (editSrc) {
       const imgModel = $("imgModel").value || "gpt-image-2.5-flare";
-      const modelsToTry = [imgModel, "black-forest-labs/flux-2-dev"];
-      let lastErr = null;
-      for (const m of modelsToTry) {
-        try {
-          img = await puter.ai.txt2img(prompt, { model: m, input_image: editSrc.dataUrl });
-          if (m !== imgModel) toast("Edit-capable model used (" + m + ")");
-          lastErr = null;
-          break;
-        } catch (e2) { lastErr = e2; img = null; }
-      }
-      if (!img) throw (lastErr || new Error("Image edit failed"));
+      img = await new Promise((resolve, reject) => {
+        const to = setTimeout(() => reject(new Error("Image edit timed out — try again")), 120000);
+        Promise.resolve(puter.ai.txt2img(prompt, { model: imgModel, input_image: editSrc.dataUrl })).then(
+          (r) => { clearTimeout(to); resolve(r); },
+          (e) => { clearTimeout(to); reject(e); }
+        );
+      });
+      if (myReq !== activeReq) return;
     } else {
-      img = await loadRemoteImage(pollinationsImageUrl(prompt));
+      remoteUrl = pollinationsImageUrl(prompt);
+      img = await loadRemoteImage(remoteUrl, myCtrl.signal);
+      if (myReq !== activeReq) return;
     }
+    if (!img) throw new Error("Image edit failed");
     if (typing.parentElement) typing.remove();
     bubble.innerHTML = "";
     img.classList.add("gen");
@@ -1255,30 +1476,54 @@ async function generateImage(prompt) {
       a.rel = "noopener";
       bubble.appendChild(a);
     } catch (e2) {}
+    conversation.push({ role: "assistant", content: "[Generated image] " + prompt, img: remoteUrl || null, gen: true });
+    saveCurrentChat();
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } catch (e) {
+    if (myReq !== activeReq) return;
     if (typing.parentElement) typing.remove();
-    let m = "Image generation failed — try again";
-    if (e) {
-      if (typeof e.message === "string" && e.message) m = e.message;
-      else if (typeof e.error === "string" && e.error) m = e.error;
-      else if (e.error && e.error.message) m = e.error.message;
+    if (e && e.name === "AbortError") {
+      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
+      saveCurrentChat();
+    } else {
+      dropMsg(myUserMsg);
+      saveCurrentChat();
+      let m = "Image generation failed — try again";
+      if (e) {
+        if (typeof e.message === "string" && e.message) m = e.message;
+        else if (typeof e.error === "string" && e.error) m = e.error;
+        else if (e.error && e.error.message) m = e.error.message;
+      }
+      const low = String(m).toLowerCase();
+      if (isNetErr(e)) {
+        m = "Couldn't reach the image server — check your internet and try again.";
+      } else if (low.includes("timed out")) {
+        m = "Image server timed out — try again.";
+      } else if (low.includes("credit") || low.includes("balance") || low.includes("insufficient") || low.includes("payment") || low.includes("quota") || low.includes("out of")) {
+        m = "Puter credits are out — photo EDITS need Puter, but making new pictures is still 100% free. Remove the photo and just describe a picture.";
+      } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
+        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then try again.";
+      }
+      showError(bubble, m);
     }
-    const low = String(m).toLowerCase();
-    if (low.includes("credit") || low.includes("balance") || low.includes("insufficient") || low.includes("payment") || low.includes("quota") || low.includes("out of")) {
-      m = "Puter credits are out — photo EDITS need Puter, but making new pictures is still 100% free. Remove the photo and just describe a picture.";
-    } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-      m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then try again.";
-    }
-    bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
+  } finally {
+    doneUI();
   }
 }
-$("stopBtn").onclick = () => { stopSpeaking(); if (abortCtrl) abortCtrl.abort(); };
+function stopAll() {
+  if (callActive && callThinking) { try { interruptCall(); } catch (e) {} return; }
+  stopSpeaking();
+  activeReq++;
+  sending = false;
+  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
+  $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
+}
+$("stopBtn").onclick = stopAll;
 $("userInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 $("userInput").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px"; });
 
 /* ---------- Voice mode (free, built into your browser — no key) ---------- */
-const SPEECH_LANGS = { en: "en-US", es: "es-ES", fr: "fr-FR", ar: "ar-SA", zh: "zh-CN", hi: "hi-IN", ru: "ru-RU", pt: "pt-BR", de: "de-DE", ja: "ja-JP", ko: "ko-KR", he: "he-IL" };
+const SPEECH_LANGS = { en: "en-US", es: "es-ES", fr: "fr-FR", ar: "ar-SA", zh: "zh-CN", hi: "hi-IN", ru: "ru-RU", pt: "pt-BR", de: "de-DE", ja: "ja-JP", ko: "ko-KR", he: "he-IL", fa: "fa-IR", ur: "ur-PK", ps: "ps-AF" };
 function speechLangFor(detected) {
   const pref = $("replyLang").value;
   const code = (pref && pref !== "auto") ? pref : (detected || "en");
@@ -1307,12 +1552,17 @@ function cleanForSpeech(text) {
 }
 
 function stopSpeaking() {
+  speechGen++;
   try { if ("speechSynthesis" in window) speechSynthesis.cancel(); } catch (e) {}
   try { stopEleven(); } catch (e2) {}
 }
 let elevenAudio = null;
+let speechGen = 0;
+let elevenQ = [];
+let elevenBusy = false;
+let elevenQGen = 0;
 function useEleven() {
-  try { return ($("ttsEngine") || {}).value === "eleven" && ((($("elevenKey") || {}).value || "").trim().length > 10); } catch (e) { return false; }
+  try { return ($("ttsEngine") || {}).value === "eleven" && (((($("elevenKey") || {}).value || "").trim().length > 10) || proxySet()); } catch (e) { return false; }
 }
 function toggleEleven() {
   const on = ($("ttsEngine") || {}).value === "eleven";
@@ -1336,40 +1586,85 @@ function refreshVoiceList() {
     if (!sel || !("speechSynthesis" in window)) return;
     const keep = localStorage.getItem("lm_voice") || sel.value || "auto";
     const vs = speechSynthesis.getVoices() || [];
-    sel.innerHTML = '<option value="auto">Auto (recommended)</option>' +
-      vs.map(v => '<option value="' + ((v.voiceURI || v.name) + "").replace(/"/g, "") + '">' + ((v.name || "") + " — " + (v.lang || "")).replace(/</g, "&lt;") + "</option>").join("");
+    sel.innerHTML = "";
+    const auto = document.createElement("option");
+    auto.value = "auto"; auto.textContent = "Auto (recommended)";
+    sel.appendChild(auto);
+    vs.forEach(v => {
+      const o = document.createElement("option");
+      o.value = (v.voiceURI || v.name || "").replace(/"/g, "");
+      o.textContent = (v.name || "") + " — " + (v.lang || "");
+      sel.appendChild(o);
+    });
     sel.value = keep;
     if (sel.value !== keep) sel.value = "auto";
   } catch (e) {}
 }
-async function elevenSpeak(text, onend, fallback) {
-  const done = (ok) => { if (!ok && fallback) { try { fallback(); } catch (e) {} } else if (onend) { try { onend(); } catch (e) {} } };
+async function elevenPlayOnce(text) {
+  const key = ((($("elevenKey") || {}).value) || "").trim();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 25000);
+  elevenSpeak._ctrl = ctrl;
   try {
-    stopEleven();
-    const key = $("elevenKey").value.trim();
-    const ctrl = new AbortController();
-    elevenSpeak._ctrl = ctrl;
-    const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB?output_format=mp3_44100_128", {
+    const headers = { "Content-Type": "application/json" };
+    if (key) headers["xi-api-key"] = key;
+    const res = await fetch(elevenEndpoint(), {
       method: "POST",
-      headers: { "Content-Type": "application/json", "xi-api-key": key },
+      headers: headers,
       body: JSON.stringify({ text: (text || "").slice(0, 2000), model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
       signal: ctrl.signal
     });
-    if (!res.ok) throw new Error("eleven " + res.status);
+    clearTimeout(timer);
+    if (!res.ok) return false;
     const blob = await res.blob();
-    if (!blob || !blob.size) throw new Error("empty audio");
+    if (!blob || !blob.size) return false;
     const url = URL.createObjectURL(blob);
     const a = new Audio(url);
     elevenAudio = a;
-    a.onended = () => { try { URL.revokeObjectURL(url); } catch (e) {} if (elevenAudio === a) elevenAudio = null; done(true); };
-    a.onerror = () => { try { URL.revokeObjectURL(url); } catch (e) {} if (elevenAudio === a) elevenAudio = null; done(false); };
-    await a.play();
+    return await new Promise((resolve) => {
+      let settled = false;
+      const fin = (ok) => {
+        if (settled) return;
+        settled = true;
+        try { URL.revokeObjectURL(url); } catch (e) {}
+        if (elevenAudio === a) elevenAudio = null;
+        resolve(ok);
+      };
+      a.onended = () => fin(true);
+      a.onerror = () => fin(false);
+      try { a.play().catch(() => fin(false)); } catch (e) { fin(false); }
+    });
   } catch (e) {
-    if (e && e.name === "AbortError") return;
-    done(false);
+    clearTimeout(timer);
+    return false;
+  } finally {
+    if (elevenSpeak._ctrl === ctrl) elevenSpeak._ctrl = null;
   }
 }
+function pumpEleven() {
+  if (elevenBusy) return;
+  const job = elevenQ.shift();
+  if (!job) return;
+  elevenBusy = true;
+  (async () => {
+    let ok = false;
+    try { ok = (job.gen === elevenQGen) ? await elevenPlayOnce(job.text) : false; }
+    catch (e) { ok = false; }
+    elevenBusy = false;
+    try { job.resolve(ok); } catch (e2) {}
+    pumpEleven();
+  })();
+}
+async function elevenSpeak(text, onend, fallback) {
+  const myGen = elevenQGen;
+  const ok = await new Promise((resolve) => { elevenQ.push({ text: text, gen: myGen, resolve: resolve }); pumpEleven(); });
+  if (myGen !== elevenQGen) return;
+  if (!ok && fallback) { try { fallback(); } catch (e) {} }
+  else if (onend) { try { onend(); } catch (e) {} }
+}
 function stopEleven() {
+  elevenQGen++;
+  elevenQ.length = 0;
   try { if (elevenSpeak._ctrl) elevenSpeak._ctrl.abort(); } catch (e) {}
   elevenSpeak._ctrl = null;
   try { if (elevenAudio) { elevenAudio.pause(); elevenAudio.src = ""; } } catch (e) {}
@@ -1391,15 +1686,15 @@ function pickVoice(lang) {
     const isGood = (v) => !banned.some(b => ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase().includes(b));
     const poolGood = (pool.length ? pool : vs).filter(isGood);
     const list = poolGood.length ? poolGood : (pool.length ? pool : vs);
-    const maleHints = ["male", "daniel", "aaron", "david", "george", "gordon", "guy", "mark", "ryan", "oliver", "siri voice 1", "siri voice 3", "siri voice 5", "tom", "henry"];
-    const naturalHints = ["siri", "google", "neural", "natural", "premium", "enhanced", "online", "eloquence", "samantha"];
+    const maleHints = ["male", "daniel", "aaron", "david", "george", "gordon", "guy", "mark", "ryan", "oliver", "tom", "henry"];
+    const naturalHints = ["siri", "google", "neural", "natural", "premium", "enhanced", "online", "eloquence"];
     const score = (v) => {
       const n = ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase();
       let s = 0;
-      if (maleHints.some(h => n.includes(h))) s += 10;
-      if (naturalHints.some(h => n.includes(h))) s += 5;
+      if ((v.lang || "").toLowerCase() === (lang || "").toLowerCase()) s += 10;
+      if (naturalHints.some(h => n.includes(h))) s += 6;
       if (v.localService) s += 2;
-      if ((v.lang || "").toLowerCase() === (lang || "").toLowerCase()) s += 3;
+      if (maleHints.some(h => n.includes(h))) s += 3;
       return s;
     };
     list.sort((a, b) => score(b) - score(a));
@@ -1433,7 +1728,11 @@ function speakText(text, detected, onend) {
     u.rate = isNaN(rate) ? 1 : rate;
     u.pitch = 1;
     try { const vv = chosenSystemVoice(u.lang); if (vv) u.voice = vv; } catch (e2) {}
-    if (onend) { u.onend = onend; u.onerror = onend; }
+    if (onend) {
+      let __fired = false;
+      const __once = () => { if (__fired) return; __fired = true; try { onend(); } catch (e3) {} };
+      u.onend = __once; u.onerror = __once;
+    }
     try { speechSynthesis.speak(u); } catch (e) {}
   };
   if (useEleven()) elevenSpeak(clean, onend, sysSpeak);
@@ -1447,12 +1746,14 @@ let callThinking = false;
 let callGen = 0;
 let callListenGen = 0;
 let callSilence = 0;
+let pendingCallUserMsg = null;
 
 function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent = t; }
 function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
 
 function speakChunk(text, detected, onend) {
-  const done = () => { if (onend) try { onend(); } catch (e) {} };
+  let __dFired = false;
+  const done = () => { if (__dFired) return; __dFired = true; if (onend) try { onend(); } catch (e) {} };
   if (useEleven()) { elevenSpeak(text, done, () => sysChunk(text, detected, done)); return; }
   sysChunk(text, detected, done);
 }
@@ -1464,9 +1765,13 @@ function sysChunk(text, detected, onend) {
     u.rate = isNaN(rate) ? 1 : rate;
     u.pitch = 1;
     try { const vv2 = chosenSystemVoice(u.lang); if (vv2) u.voice = vv2; } catch (e2) {}
-    if (onend) { u.onend = onend; u.onerror = onend; }
+    if (onend) {
+      let __fired = false;
+      const __once = () => { if (__fired) return; __fired = true; try { onend(); } catch (e3) {} };
+      u.onend = __once; u.onerror = __once;
+    }
     speechSynthesis.speak(u);
-  } catch (e) { if (onend) onend(); }
+  } catch (e) { if (onend) try { onend(); } catch (e2) {} }
 }
 function pullSentences(buf) {
   const out = [];
@@ -1482,7 +1787,7 @@ function startCall() {
   if (!("speechSynthesis" in window)) { toast("This browser can't speak — try Chrome or Safari"); return; }
   if (callActive) return;
   const _ccfg = PROVIDERS[$("provider").value] || {};
-  if (!_ccfg.free && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if (!_ccfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
   if ($("provider").value === "puter" && (typeof puter === "undefined" || !puter.ai)) { toast("Puter.js didn't load — check your connection"); return; }
   if (imageMode) {
     imageMode = false;
@@ -1506,17 +1811,28 @@ function endCall(silent) {
   callActive = false;
   callThinking = false;
   callGen++;
+  callListenGen++;
+  elevenQGen++;
+  try { if (callRecog) { callRecog.onresult = null; callRecog.onend = null; callRecog.onerror = null; } } catch (e) {}
   try { if (callRecog) callRecog.abort(); } catch (e) {}
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
   abortCtrl = null;
   callRecog = null;
+  pendingCallUserMsg = null;
   stopSpeaking();
   $("callOverlay").classList.remove("open");
   $("micBtn").classList.remove("on");
-  saveCurrentChat();
+  try { saveCurrentChat(); } catch (e2) {}
   if (!silent) toast("Call ended");
 }
 
+function recogLang() {
+  try {
+    const pref = ($("replyLang") || {}).value || "auto";
+    if (pref !== "auto" && SPEECH_LANGS[pref]) return SPEECH_LANGS[pref];
+  } catch (e) {}
+  return "en-US";
+}
 function callListen() {
   if (!callActive || callThinking) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1525,7 +1841,7 @@ function callListen() {
   const myLG = ++callListenGen;
   const r = new SR();
   callRecog = r;
-  r.lang = speechLangFor(null);
+  r.lang = recogLang();
   r.interimResults = true;
   r.continuous = false;
   r.maxAlternatives = 1;
@@ -1564,7 +1880,8 @@ function callListen() {
       toast("Microphone unavailable on this device");
     } else if (ev.error !== "aborted") {
       callListenGen++;
-      callListen();
+      const __lg = callListenGen;
+      setTimeout(() => { if (__lg === callListenGen && callActive && !callThinking) callListen(); }, 400);
     }
   };
   try { r.start(); } catch (e) {
@@ -1582,7 +1899,8 @@ async function handleCallUtterance(text) {
   setCallTranscript("You: " + text);
   const userBubble = addMessage("user");
   userBubble.textContent = "📞 " + text;
-  conversation.push({ role: "user", content: text });
+  pendingCallUserMsg = { role: "user", content: text };
+  conversation.push(pendingCallUserMsg);
   const bubble = addMessage("bot");
   const typing = document.createElement("div");
   typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
@@ -1596,13 +1914,24 @@ async function handleCallUtterance(text) {
     sysText += " Reply in " + langPref + ".";
   }
   const isPuter = $("provider").value === "puter";
-  const callTry = isPuter
-    ? [($("modelName").value || PROVIDERS.puter.model)]
-    : ["openai-fast", "openai", ($("modelName").value || "openai")].filter((v, i, a) => v && a.indexOf(v) === i);
+  const __callProv = PROVIDERS[$("provider").value] || {};
+  const __callSel = $("modelName").value || __callProv.model || "openai-fast";
+  const __callAnth = !isPuter && __callProv.kind === "anthropic";
+  const callTry = isPuter ? [__callSel] : [__callSel].concat((__callProv.fallbacks || []).filter(f => f && f !== __callSel));
+  let __callSwitched = false;
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   let full = "", pendingBuf = "";
   let firstToken = false, streamDone = false, speechPending = 0, spokeAny = false;
-  let slowTimer = setTimeout(() => { if (callActive && myGen === callGen && !firstToken) setCallStatus("Still thinking… (free server can be slow)"); }, 7000);
+  const __isFreeCall = ($("provider").value === "pollinations");
+  let slowTimer = setTimeout(() => { if (callActive && myGen === callGen && !firstToken) setCallStatus(__isFreeCall ? "Still thinking… (free server can be slow)" : "Still thinking…"); }, 7000);
+  let safetyTimer = setTimeout(() => {
+    if (callActive && myGen === callGen && callThinking) {
+      callThinking = false;
+      abortCtrl = null;
+      try { stopSpeaking(); } catch (e) {}
+      callListen();
+    }
+  }, 90000);
   const maybeFinish = () => {
     if (!callActive || myGen !== callGen) return;
     if (streamDone && speechPending === 0 && callThinking) {
@@ -1648,20 +1977,32 @@ async function handleCallUtterance(text) {
               onDelta(extractChatText(resp));
             }
           } else {
-            const res = await fetch(chatUrl(), {
+            const __isA = __callAnth;
+            const __url = __isA ? ((__callProv.base || "") + "/messages") : chatUrl();
+            const __body = __isA
+              ? { model: cm, max_tokens: 400, system: sysText, messages: apiMessages(8), stream: true }
+              : { model: cm, messages: [{ role: "system", content: sysText }].concat(apiMessages(8)), stream: true, max_tokens: 400 };
+            const res = await fetch(__url, {
               method: "POST",
               headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-              body: JSON.stringify({ model: cm, messages: [{ role: "system", content: sysText }].concat(apiMessages(8)), stream: true, max_tokens: 400 }),
+              body: JSON.stringify(__body),
               signal: abortCtrl.signal
             });
             if (!res.ok) {
-              const E = new Error(res.status === 429 ? "429 Free server is busy — retrying" : "HTTP " + res.status);
+              const E = new Error(res.status === 429 && $("provider").value === "pollinations" ? "429 Free server is busy — retrying" : httpLabel(res.status));
               E.__status = res.status;
               throw E;
             }
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let sbuf = "";
+            const __callLine = (line) => {
+              if (!line.startsWith("data:")) return;
+              const data = line.slice(5).trim();
+              if (!data || data === "[DONE]") return;
+              const d = sseDelta(JSON.parse(data), __isA);
+              if (d) onDelta(d);
+            };
             while (true) {
               if (myGen !== callGen || !callActive) { try { reader.cancel(); } catch (e0) {} return; }
               const { value, done } = await reader.read();
@@ -1671,21 +2012,17 @@ async function handleCallUtterance(text) {
               while ((nl = sbuf.indexOf("\n")) >= 0) {
                 const line = sbuf.slice(0, nl).trim();
                 sbuf = sbuf.slice(nl + 1);
-                if (!line.startsWith("data:")) continue;
-                const data = line.slice(5).trim();
-                if (data === "[DONE]") break;
-                try {
-                  const obj = JSON.parse(data);
-                  const d = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
-                  if (d) onDelta(d);
-                } catch (pe) {}
+                try { __callLine(line); } catch (pe) { if (pe && pe.__provErr) throw pe; }
               }
             }
+            if (sbuf.trim()) { try { __callLine(sbuf.trim()); } catch (pe) { if (pe && pe.__provErr) throw pe; } }
           }
+          if (__callSwitched) toast("Primary model unavailable — switched to fallback (" + cm + ")");
           fatalErr = null;
           break;
         } catch (ce) {
           if (ce.name === "AbortError") throw ce;
+          __callSwitched = true;
           fatalErr = ce;
         }
       }
@@ -1701,12 +2038,15 @@ async function handleCallUtterance(text) {
       } else break;
     }
     if (slowTimer) clearTimeout(slowTimer);
+    if (safetyTimer) clearTimeout(safetyTimer);
     if (!full) throw (fatalErr || new Error("empty response"));
   } catch (e) {
     if (slowTimer) clearTimeout(slowTimer);
+    if (safetyTimer) clearTimeout(safetyTimer);
     if (typing.parentElement) typing.remove();
     if (e.name === "AbortError") {
-      if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+      dropMsg(pendingCallUserMsg);
+      pendingCallUserMsg = null;
       saveCurrentChat();
       return;
     }
@@ -1718,17 +2058,24 @@ async function handleCallUtterance(text) {
       else if (e.error && e.error.message) m = e.error.message;
     }
     const low = String(m).toLowerCase();
-    if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-      bubble.innerHTML = "<span class='err'>⚠️ Puter needs a free sign-in — allow the popup once, then call again.</span>";
+    if (isPuter && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied"))) {
+      showError(bubble, "Puter needs a free sign-in — allow the popup once, then call again.");
       setCallTranscript("Sign-in needed — allow the popup, then call again.");
       endCall(true);
       toast("Allow the Puter sign-in popup, then start the call again");
       return;
     }
-    if (/load failed|failed to fetch|network/i.test(low)) m = "Connection to the free server failed — check your internet";
-    if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+    if (e && e.__status) {
+      m = ($("provider").value === "pollinations" && e.__status === 429)
+        ? "Free server is busy — one sec…"
+        : httpLabel(e.__status);
+    } else if (isNetErr(e)) {
+      m = "Connection failed — check your internet";
+    }
+    dropMsg(pendingCallUserMsg);
+    pendingCallUserMsg = null;
     saveCurrentChat();
-    bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
+    showError(bubble, m);
     if (/429|rate|busy/i.test(String(m))) {
       setCallTranscript("Free server is busy — one sec…");
       setCallStatus("Retrying…");
@@ -1745,6 +2092,7 @@ async function handleCallUtterance(text) {
   if (full) {
     appendStreaming(bubble, full);
     conversation.push({ role: "assistant", content: full });
+    pendingCallUserMsg = null;
     saveCurrentChat();
     setCallTranscript("HAKIMI: " + full.slice(0, 200));
     const tail = pendingBuf.trim();
@@ -1762,14 +2110,19 @@ async function handleCallUtterance(text) {
 
 $("micBtn").onclick = startCall;
 $("endCallBtn").onclick = () => endCall(false);
-$("interruptBtn").onclick = () => {
+function interruptCall() {
   if (!callActive) return;
   callGen++;
+  callListenGen++;
+  elevenQGen++;
+  try { if (callRecog) { callRecog.onresult = null; callRecog.onend = null; callRecog.onerror = null; } } catch (e) {}
+  try { if (callRecog) callRecog.abort(); } catch (e) {}
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
   abortCtrl = null;
   stopSpeaking();
   if (callThinking) {
-    if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+    dropMsg(pendingCallUserMsg);
+    pendingCallUserMsg = null;
     saveCurrentChat();
     const bots = messagesEl.querySelectorAll(".msg.bot:last-child .bubble");
     const last = bots[bots.length - 1];
@@ -1780,7 +2133,8 @@ $("interruptBtn").onclick = () => {
   setCallStatus("Listening…");
   setCallTranscript("Go ahead — I'm listening.");
   callListen();
-};
+}
+$("interruptBtn").onclick = interruptCall;
 
 // Auto-read toggle (mirrors the Settings switch)
 $("speakBtn").onclick = () => {
@@ -1858,13 +2212,27 @@ function extractChatText(resp) {
   return "";
 }
 
+function visionModelsFor(pv, selected) {
+  const sel = selected || "";
+  if (pv === "pollinations") return [sel || "openai-fast", "openai"].filter((v, i, a) => v && a.indexOf(v) === i);
+  if (pv === "groq") return [sel || "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"].filter((v, i, a) => v && a.indexOf(v) === i);
+  if (pv === "openai") return [sel || "gpt-4o-mini"];
+  if (pv === "openrouter") return [sel || "openai/gpt-4o-mini"];
+  if (pv === "anthropic") return [sel || "claude-3-5-haiku-20241022"];
+  if (pv === "puter") return [sel || PROVIDERS.puter.model];
+  return [sel];
+}
+
 async function sendVision(question, img) {
-  if ($("provider").value !== "pollinations") {
-    $("provider").value = "pollinations";
-    $("modelName").value = PROVIDERS.pollinations.model;
-    saveSettings(); updateStatus(); toggleKeyField();
-    toast("Switched to Free Forever mode for vision");
-  }
+  const pv = $("provider").value;
+  const pcfg = PROVIDERS[pv] || {};
+  if (!pcfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if (sending) { toast("Already working — tap Stop first"); return; }
+  sending = true;
+  const myReq = ++activeReq;
+  abortCtrl = new AbortController();
+  const myCtrl = abortCtrl;
+  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "grid";
   const q = question || "What do you see in this image? Describe it in detail.";
   const userBubble = addMessage("user");
   userBubble.innerHTML = "";
@@ -1874,7 +2242,9 @@ async function sendVision(question, img) {
   const cap = document.createElement("div");
   cap.textContent = q;
   userBubble.appendChild(cap);
-  conversation.push({ role: "user", content: "[Photo: " + (img.name || "image") + "] " + q, img: img.dataUrl });
+  const myUserMsg = { role: "user", content: "[Photo: " + (img.name || "image") + "] " + q, img: img.dataUrl };
+  conversation.push(myUserMsg);
+  try { attachThumb(myUserMsg, img.dataUrl); } catch (e0) {}
 
   const bubble = addMessage("bot");
   const typing = document.createElement("div");
@@ -1886,71 +2256,136 @@ async function sendVision(question, img) {
   const langPref = $("replyLang").value;
   let sysText = SYSTEM_PROMPT;
   if (langPref !== "auto") sysText += " Reply in " + langPref + ".";
-  const modelsToTry = [$("modelName").value || "openai", "openai"];
+  const modelsToTry = visionModelsFor(pv, $("modelName").value);
+  const isPuterV = (pv === "puter");
+  const isAnthV = (pcfg.kind === "anthropic");
+  let vTimedOut = false;
   try {
     let lastErr = null;
     for (const vm of modelsToTry) {
+      if (myReq !== activeReq) return;
       try {
-        const vMessages = [{ role: "system", content: sysText }].concat(apiMessages(10).slice(0, -1)).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image_url", image_url: { url: img.dataUrl } }] }]);
-        const res = await fetch(chatUrl(), {
-          method: "POST",
-          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ model: vm, messages: vMessages, stream: true, max_tokens: 1200, temperature: 0.7 })
-        });
-        if (!res.ok) throw new Error(res.status === 429 ? "Free server is busy (rate limit) — wait a few seconds and resend" : "HTTP " + res.status);
-        full = "";
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let vbuf = "";
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          vbuf += decoder.decode(value, { stream: true });
-          let nl;
-          while ((nl = vbuf.indexOf("\n")) >= 0) {
-            const line = vbuf.slice(0, nl).trim();
-            vbuf = vbuf.slice(nl + 1);
-            if (!line.startsWith("data:")) continue;
-            const data = line.slice(5).trim();
-            if (data === "[DONE]") break;
-            try {
-              const obj = JSON.parse(data);
-              const delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
-              if (delta) full += delta;
-            } catch (pe) {}
-          }
+        if (isPuterV) {
+          if (typeof puter === "undefined" || !puter.ai) throw new Error("Puter.js didn't load — check your connection");
+          const resp = await new Promise((resolve, reject) => {
+            const to = setTimeout(() => reject(new Error("Vision timed out — try again")), 60000);
+            Promise.resolve(puter.ai.chat(q, img.dataUrl, { model: vm })).then(
+              (r) => { clearTimeout(to); resolve(r); },
+              (e) => { clearTimeout(to); reject(e); }
+            );
+          });
+          if (myReq !== activeReq) return;
+          full = extractChatText(resp);
           if (typing.parentElement) typing.remove();
-          renderThrottled(bubble, full);
+          appendStreaming(bubble, full);
+        } else {
+          let vUrl, vBody;
+          if (isAnthV) {
+            const pm = /^data:(image\/\w+);base64,(.*)$/.exec(img.dataUrl || "");
+            if (!pm) throw new Error("Couldn't read that image — try another");
+            vUrl = (pcfg.base || "") + "/messages";
+            vBody = {
+              model: vm, max_tokens: 1200, system: sysText,
+              messages: apiMessages(10).slice(0, -1).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image", source: { type: "base64", media_type: pm[1], data: pm[2] } }] }]),
+              stream: true
+            };
+          } else {
+            vUrl = chatUrl();
+            vBody = {
+              model: vm,
+              messages: [{ role: "system", content: sysText }].concat(apiMessages(10).slice(0, -1)).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image_url", image_url: { url: img.dataUrl } }] }]),
+              stream: true, max_tokens: 1200, temperature: 0.7
+            };
+          }
+          const res = await fetch(vUrl, {
+            method: "POST",
+            headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+            body: JSON.stringify(vBody),
+            signal: myCtrl.signal
+          });
+          if (!res.ok) {
+            const E = new Error(res.status === 400 ? "That model rejected the image request (it may not support photos)" : httpLabel(res.status));
+            E.__status = res.status;
+            throw E;
+          }
+          if (vm !== $("modelName").value && modelsToTry.length > 1) toast("Primary model unavailable — switched to fallback (" + vm + ")");
+          full = "";
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let vbuf = "", vGot = false;
+          const vwd = setTimeout(() => { if (!vGot) { vTimedOut = true; try { myCtrl.abort(); } catch (e) {} } }, 45000);
+          const vLine = (line) => {
+            if (!line.startsWith("data:")) return;
+            const data = line.slice(5).trim();
+            if (!data || data === "[DONE]") return;
+            const delta = sseDelta(JSON.parse(data), isAnthV);
+            if (delta) { full += delta; if (!vGot) { vGot = true; clearTimeout(vwd); } }
+          };
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            vbuf += decoder.decode(value, { stream: true });
+            let nl;
+            while ((nl = vbuf.indexOf("\n")) >= 0) {
+              const line = vbuf.slice(0, nl).trim();
+              vbuf = vbuf.slice(nl + 1);
+              try { vLine(line); } catch (pe) { if (pe && pe.__provErr) { clearTimeout(vwd); throw pe; } }
+            }
+            if (myReq !== activeReq) { clearTimeout(vwd); try { reader.cancel(); } catch (e) {} return; }
+            if (typing.parentElement) typing.remove();
+            renderThrottled(bubble, full);
+          }
+          clearTimeout(vwd);
+          if (vbuf.trim()) { try { vLine(vbuf.trim()); } catch (pe) { if (pe && pe.__provErr) throw pe; } }
+          appendStreaming(bubble, full);
         }
-        appendStreaming(bubble, full);
         if (!full) throw new Error("empty response");
         lastErr = null;
         break;
-      } catch (e2) { lastErr = e2; full = ""; }
+      } catch (e2) {
+        if (e2 && e2.name === "AbortError") throw e2;
+        lastErr = e2;
+        full = "";
+      }
     }
+    if (myReq !== activeReq) return;
     if (!full) throw (lastErr || new Error("Vision failed"));
     conversation.push({ role: "assistant", content: full });
     saveCurrentChat();
     if (isAutoRead()) speakText(full, null);
   } catch (e) {
+    if (myReq !== activeReq) return;
     if (typing.parentElement) typing.remove();
-    if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
-    saveCurrentChat();
-    let m = "Couldn't analyze that photo — try another image";
-    if (e) {
-      if (typeof e.message === "string" && e.message) m = e.message;
-      else if (typeof e.error === "string" && e.error) m = e.error;
-      else if (e.error && e.error.message) m = e.error.message;
+    if (e && e.name === "AbortError" && !vTimedOut) {
+      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
+      saveCurrentChat();
+    } else {
+      dropMsg(myUserMsg);
+      saveCurrentChat();
+      let m = "Couldn't analyze that photo — try another image";
+      if (e) {
+        if (typeof e.message === "string" && e.message) m = e.message;
+        else if (typeof e.error === "string" && e.error) m = e.error;
+        else if (e.error && e.error.message) m = e.error.message;
+      }
+      const low = String(m).toLowerCase();
+      if (vTimedOut) {
+        m = "Vision timed out — try again.";
+      } else if (e && e.__status) {
+        m = (pv === "pollinations" && e.__status === 429)
+          ? "Free server is busy (1 msg per ~15s) — wait a few seconds and resend."
+          : httpLabel(e.__status);
+      } else if (isNetErr(e)) {
+        m = pv === "pollinations" ? "Couldn't reach the free server — check your internet and resend." : "Network error reaching your provider — check your internet or try again.";
+      } else if (isPuterV && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied"))) {
+        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once, then try again.";
+      }
+      showError(bubble, m);
     }
-    const low = String(m).toLowerCase();
-    if (low.includes("rate") || low.includes("429") || low.includes("busy")) {
-      m = "Free server is busy (1 msg per ~15s) — wait a few seconds and resend.";
-    } else if (low.includes("load failed") || low.includes("failed to fetch") || low.includes("network")) {
-      m = "Couldn't reach the free server — check your internet and resend.";
-    } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-      m = "That model refused the image — try again, or switch Provider to Puter for Claude vision.";
-    }
-    bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
+  } finally {
+    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
+    if (abortCtrl === myCtrl) abortCtrl = null;
+    if (myReq === activeReq) sending = false;
   }
 }
 
@@ -2007,5 +2442,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a41908de599df46c',t:'MTc5MDQ5NjY1NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
