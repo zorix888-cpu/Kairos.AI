@@ -204,6 +204,17 @@ header h1 {
 .pill-btn:active { background: var(--surface-3); }
 .pill-btn.danger { border-color: var(--danger); color: #ff9a9a; }
 
+/* ---------- Call overlay ---------- */
+#callOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 120; background: rgba(0,0,0,.92); padding: 24px; }
+#callOverlay.open { display: flex; }
+.call-card { width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.call-title { font-family: "Georgia", serif; letter-spacing: 6px; font-size: 15px; color: var(--muted); }
+#callStatus { font-size: 17px; letter-spacing: .5px; }
+#callTranscript { font-size: 14px; color: var(--muted); line-height: 1.7; min-height: 48px; max-height: 140px; overflow-y: auto; }
+.call-actions { display: flex; gap: 10px; width: 100%; margin-top: 8px; }
+.call-actions button { flex: 1; padding: 16px; border-radius: 16px; font-size: 15px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+#endCallBtn { background: var(--danger); border-color: var(--danger); color: #fff; }
+
 /* ---------- Chat history drawer ---------- */
 #drawerBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 94; }
 #drawerBackdrop.open { opacity: 1; pointer-events: auto; }
@@ -242,7 +253,7 @@ header h1 {
   position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
   background: var(--surface-3); border: 1px solid var(--border); color: var(--text);
   padding: 14px 20px; border-radius: 14px; font-size: 14px; opacity: 0;
-  transition: opacity .25s; pointer-events: none; z-index: 100; max-width: 90%; text-align: center; letter-spacing: .3px;
+  transition: opacity .25s; pointer-events: none; z-index: 130; max-width: 90%; text-align: center; letter-spacing: .3px;
 }
 .toast.show { opacity: 1; }
 
@@ -290,13 +301,31 @@ header h1 {
         </div>
         <div class="toolbar">
           <button class="tool" id="imgBtn" title="Toggle image mode">🎨 Image</button>
-          <button class="tool" id="micBtn" title="Voice input">🎤 Talk</button>
+          <button class="tool" id="micBtn" title="Voice call">📞 Call</button>
           <button class="tool" id="speakBtn" title="Read replies aloud">🔊 Read</button>
           <button class="tool" id="attachBtn" title="Attach a photo">📎 Photo</button>
         </div>
       </div>
       <input type="file" id="fileInput" accept="image/*" hidden />
     </section>
+  </div>
+</div>
+
+<!-- Call overlay -->
+<div id="callOverlay">
+  <div class="call-card">
+    <div class="emblem lg"><div class="cube">
+      <div class="face f-front"></div><div class="face f-back"></div>
+      <div class="face f-right"></div><div class="face f-left"></div>
+      <div class="face f-top"></div><div class="face f-bottom"></div>
+    </div></div>
+    <div class="call-title">HAKIMI CALL</div>
+    <div id="callStatus">Listening…</div>
+    <div id="callTranscript"></div>
+    <div class="call-actions">
+      <button id="interruptBtn">Tap to interrupt</button>
+      <button id="endCallBtn">End call</button>
+    </div>
   </div>
 </div>
 
@@ -673,7 +702,7 @@ function apiMessages() {
 }
 function currentChat() { return chats.find(c => c.id === currentChatId) || null; }
 function newChat() {
-  stopSpeaking();
+  endCall(true); stopSpeaking();
   const c = { id: "c" + Date.now().toString(36), title: "New chat", messages: [], updatedAt: Date.now() };
   chats.unshift(c);
   currentChatId = c.id;
@@ -696,7 +725,7 @@ function saveCurrentChat() {
 function loadChat(id) {
   const c = chats.find(x => x.id === id);
   if (!c) return;
-  stopSpeaking();
+  endCall(true); stopSpeaking();
   currentChatId = id;
   conversation = c.messages || [];
   c.messages = conversation;
@@ -954,10 +983,9 @@ $("sendBtn").onclick = () => sendMessage();
 $("imgBtn").onclick = () => {
   imageMode = !imageMode;
   $("imgBtn").classList.toggle("on", imageMode);
-  if (imageMode && pendingImage) clearAttachment();
   $("userInput").placeholder = imageMode ? "Describe an image to create…" : "Message HAKIMI";
   if (!welcomeHidden) buildSuggestions();
-  toast(imageMode ? "Image mode ON — describe a picture" : "Chat mode — back to text");
+  toast(imageMode ? (pendingImage ? "Image mode — describe the edit, then send" : "Image mode ON — describe a picture, or attach a photo to edit") : "Chat mode — back to text");
 };
 
 async function generateImage(prompt) {
@@ -972,8 +1000,20 @@ async function generateImage(prompt) {
     toast("Puter.js didn't load — check your connection");
     return;
   }
+  const editSrc = pendingImage;
+  clearAttachment();
   const userBubble = addMessage("user");
-  userBubble.textContent = "🎨 " + prompt;
+  if (editSrc) {
+    userBubble.innerHTML = "";
+    const th = document.createElement("img");
+    th.className = "attached"; th.src = editSrc.dataUrl; th.alt = "source photo";
+    userBubble.appendChild(th);
+    const cap = document.createElement("div");
+    cap.textContent = "🎨✏️ " + prompt;
+    userBubble.appendChild(cap);
+  } else {
+    userBubble.textContent = "🎨 " + prompt;
+  }
   const bubble = addMessage("bot");
   const typing = document.createElement("div");
   typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
@@ -981,7 +1021,19 @@ async function generateImage(prompt) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
   try {
     const imgModel = $("imgModel").value || "gpt-image-2.5-flare";
-    const img = await puter.ai.txt2img(prompt, { model: imgModel });
+    const modelsToTry = editSrc ? [imgModel, "black-forest-labs/flux-2-dev"] : [imgModel];
+    let img = null, lastErr = null;
+    for (const m of modelsToTry) {
+      try {
+        const opts = { model: m };
+        if (editSrc) opts.input_image = editSrc.dataUrl;
+        img = await puter.ai.txt2img(prompt, opts);
+        if (editSrc && m !== imgModel) toast("Edit-capable model used (" + m + ")");
+        lastErr = null;
+        break;
+      } catch (e2) { lastErr = e2; img = null; }
+    }
+    if (!img) throw (lastErr || new Error("Image generation failed"));
     if (typing.parentElement) typing.remove();
     bubble.innerHTML = "";
     img.classList.add("gen");
@@ -1045,7 +1097,7 @@ function stopSpeaking() {
 
 function isAutoRead() { return $("autoRead").value === "on"; }
 
-function speakText(text, detected) {
+function speakText(text, detected, onend) {
   if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); return; }
   stopSpeaking();
   const clean = cleanForSpeech(text);
@@ -1054,53 +1106,186 @@ function speakText(text, detected) {
   u.lang = speechLangFor(detected);
   const rate = parseFloat($("voiceRate").value || "1");
   u.rate = isNaN(rate) ? 1 : rate;
+  if (onend) { u.onend = onend; u.onerror = onend; }
   try { speechSynthesis.speak(u); } catch (e) {}
 }
 
-// Mic dictation → types into the message box
-let recognizing = false;
-let recog = null;
-function toggleMic() {
+/* ---------- Call mode: live voice conversation ---------- */
+let callActive = false;
+let callRecog = null;
+let callThinking = false;
+let callGen = 0;
+
+function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent = t; }
+function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
+
+function startCall() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast("Voice input needs Chrome, Edge, or Safari"); return; }
-  if (recognizing && recog) { try { recog.stop(); } catch (e) {} return; }
-  recog = new SR();
-  recog.lang = speechLangFor(null);
-  recog.interimResults = true;
-  recog.continuous = false;
-  const input = $("userInput");
-  let finalText = input.value ? input.value + " " : "";
-  recog.onresult = (ev) => {
-    let interim = "";
+  if (!SR) { toast("Live calls need Chrome, Edge, or Safari"); return; }
+  if (!("speechSynthesis" in window)) { toast("This browser can't speak — try Chrome or Safari"); return; }
+  if (callActive) return;
+  if ($("provider").value !== "puter") {
+    $("provider").value = "puter";
+    $("modelName").value = PROVIDERS.puter.model;
+    saveSettings(); updateStatus(); toggleKeyField();
+  }
+  if (typeof puter === "undefined" || !puter.ai) { toast("Puter.js didn't load — check your connection"); return; }
+  if (imageMode) {
+    imageMode = false;
+    $("imgBtn").classList.remove("on");
+    $("userInput").placeholder = "Message HAKIMI";
+    if (!welcomeHidden) buildSuggestions();
+  }
+  stopSpeaking();
+  callActive = true;
+  callThinking = false;
+  callGen++;
+  $("callOverlay").classList.add("open");
+  $("micBtn").classList.add("on");
+  setCallStatus("Listening…");
+  setCallTranscript("Say something — I'm listening.");
+  callListen();
+}
+
+function endCall(silent) {
+  if (!callActive) return;
+  callActive = false;
+  callThinking = false;
+  callGen++;
+  try { if (callRecog) callRecog.abort(); } catch (e) {}
+  callRecog = null;
+  stopSpeaking();
+  $("callOverlay").classList.remove("open");
+  $("micBtn").classList.remove("on");
+  saveCurrentChat();
+  if (!silent) toast("Call ended");
+}
+
+function callListen() {
+  if (!callActive || callThinking) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { endCall(true); toast("Voice input needs Chrome, Edge, or Safari"); return; }
+  try { if (callRecog) callRecog.abort(); } catch (e) {}
+  const r = new SR();
+  callRecog = r;
+  r.lang = speechLangFor(null);
+  r.interimResults = true;
+  r.continuous = false;
+  setCallStatus("Listening…");
+  r.onresult = (ev) => {
+    let interim = "", fin = "";
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      const t = ev.results[i][0].transcript;
-      if (ev.results[i].isFinal) finalText += t;
-      else interim += t;
+      if (ev.results[i].isFinal) fin += ev.results[i][0].transcript;
+      else interim += ev.results[i][0].transcript;
     }
-    input.value = (finalText + interim).slice(0, 2000);
-    input.style.height = "auto";
-    input.style.height = Math.min(input.scrollHeight, 130) + "px";
+    if (interim) setCallTranscript("You: " + interim);
+    if (fin) {
+      try { r.stop(); } catch (e) {}
+      handleCallUtterance(fin.trim());
+    }
   };
-  recog.onend = () => { recognizing = false; $("micBtn").classList.remove("listening"); };
-  recog.onerror = (ev) => {
-    recognizing = false;
-    $("micBtn").classList.remove("listening");
+  r.onend = () => {
+    if (!callActive || callThinking) return;
+    if (callRecog === r) callListen();
+  };
+  r.onerror = (ev) => {
+    if (!callActive || callThinking) return;
     if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
-      toast("Mic blocked — allow microphone access in your browser");
-    } else if (ev.error !== "aborted" && ev.error !== "no-speech") {
-      toast("Mic error: " + ev.error);
+      endCall(true);
+      toast("Mic blocked — allow microphone access");
+    } else if (ev.error !== "aborted") {
+      if (callRecog === r) callListen();
     }
   };
-  try {
-    recog.start();
-    recognizing = true;
-    $("micBtn").classList.add("listening");
-    toast("Listening… tap the mic again to stop");
-  } catch (e) {
-    toast("Couldn't start mic — try again");
+  try { r.start(); } catch (e) {
+    setTimeout(() => { if (callActive && !callThinking && callRecog === r) callListen(); }, 600);
   }
 }
-$("micBtn").onclick = toggleMic;
+
+async function handleCallUtterance(text) {
+  if (!text) { if (callActive) callListen(); return; }
+  if (!callActive) return;
+  const myGen = callGen;
+  callThinking = true;
+  setCallStatus("Thinking…");
+  setCallTranscript("You: " + text);
+  const userBubble = addMessage("user");
+  userBubble.textContent = "📞 " + text;
+  conversation.push({ role: "user", content: text });
+  const bubble = addMessage("bot");
+  const typing = document.createElement("div");
+  typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
+  bubble.appendChild(typing);
+  const detected = detectScript(text);
+  const langPref = $("replyLang").value;
+  let sysText = SYSTEM_PROMPT + " Keep replies short and conversational (this is a voice call — no long lists, no code unless asked).";
+  if (langPref === "auto") {
+    if (detected !== "en") sysText += " The user is speaking " + detected + "; reply in that language.";
+  } else {
+    sysText += " Reply in " + langPref + ".";
+  }
+  const model = $("modelName").value || PROVIDERS.puter.model;
+  let full = "";
+  try {
+    const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages()), { model: model });
+    if (resp && typeof resp[Symbol.asyncIterator] === "function") {
+      for await (const part of resp) { if (part && part.text) full += part.text; }
+    } else {
+      full = extractChatText(resp);
+    }
+    if (!full) full = "I didn't quite get that — say it again?";
+  } catch (e) {
+    full = "";
+    let m = "Sorry — say that again";
+    if (e) {
+      if (typeof e.message === "string" && e.message) m = e.message;
+      else if (typeof e.error === "string" && e.error) m = e.error;
+      else if (e.error && e.error.message) m = e.error.message;
+    }
+    const low = String(m).toLowerCase();
+    if (typing.parentElement) typing.remove();
+    if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
+      bubble.innerHTML = "<span class='err'>⚠️ Puter needs a free sign-in — allow the popup once, then call again.</span>";
+      setCallTranscript("Sign-in needed — allow the popup, then call again.");
+      endCall(true);
+      toast("Allow the Puter sign-in popup, then start the call again");
+      return;
+    }
+    if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+    saveCurrentChat();
+    bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
+    setCallTranscript("Hmm, that failed — try again.");
+  }
+  if (typing.parentElement) typing.remove();
+  if (myGen !== callGen || !callActive) return;
+  if (full) {
+    appendStreaming(bubble, full);
+    conversation.push({ role: "assistant", content: full });
+    saveCurrentChat();
+    setCallStatus("Speaking… (tap interrupt to cut in)");
+    setCallTranscript("HAKIMI: " + full.slice(0, 200));
+    speakText(full, detected, () => {
+      if (!callActive || myGen !== callGen) return;
+      callThinking = false;
+      callListen();
+    });
+  } else {
+    callThinking = false;
+    callListen();
+  }
+}
+
+$("micBtn").onclick = startCall;
+$("endCallBtn").onclick = () => endCall(false);
+$("interruptBtn").onclick = () => {
+  if (!callActive) return;
+  callGen++;
+  stopSpeaking();
+  callThinking = false;
+  setCallStatus("Listening…");
+  setCallTranscript("Go ahead — I'm listening.");
+  callListen();
+};
 
 // Auto-read toggle (mirrors the Settings switch)
 $("speakBtn").onclick = () => {
@@ -1158,11 +1343,7 @@ $("fileInput").addEventListener("change", async (ev) => {
     pendingImage = { dataUrl: dataUrl, name: f.name };
     showAttachPreview();
     if (imageMode) {
-      imageMode = false;
-      $("imgBtn").classList.remove("on");
-      $("userInput").placeholder = "Message HAKIMI";
-      if (!welcomeHidden) buildSuggestions();
-      toast("Photo attached — switched to chat mode");
+      toast("Photo attached — describe how to edit it, then send");
     } else {
       toast("Photo attached — type a question or just send");
     }
@@ -1274,7 +1455,7 @@ $("exportBtn").onclick = () => {
   toast("Chat exported");
 };
 $("clearChatBtn").onclick = () => confirmDialog("Clear conversation?", "This removes all messages from this session.", () => {
-  stopSpeaking(); conversation = []; const _cc = currentChat(); if (_cc) { _cc.messages = conversation; _cc.title = "New chat"; _cc.updatedAt = Date.now(); } messagesEl.innerHTML = ""; welcomeHidden = false; persistChats(); renderChatList();
+  endCall(true); stopSpeaking(); conversation = []; const _cc = currentChat(); if (_cc) { _cc.messages = conversation; _cc.title = "New chat"; _cc.updatedAt = Date.now(); } messagesEl.innerHTML = ""; welcomeHidden = false; persistChats(); renderChatList();
   $("welcome").style.display = "flex"; toast("Conversation cleared");
 });
 
@@ -1295,5 +1476,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || $("provider").value === "puter") fetchModels(); // FIX: load free models too
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418474ee993aac0',t:'MTc5MDQ4ODcyNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
