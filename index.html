@@ -1542,6 +1542,8 @@ function cleanForSpeech(text) {
 
 function stopSpeaking() {
   speechGen++;
+  sysGen++;
+  sysQ.length = 0;
   try { if ("speechSynthesis" in window) speechSynthesis.cancel(); } catch (e) {}
   try { stopEleven(); } catch (e2) {}
 }
@@ -1550,6 +1552,9 @@ let speechGen = 0;
 let elevenQ = [];
 let elevenBusy = false;
 let elevenQGen = 0;
+let sysQ = [];
+let sysBusy = false;
+let sysGen = 0;
 function useEleven() {
   try { return ($("ttsEngine") || {}).value === "eleven" && (((($("elevenKey") || {}).value || "").trim().length > 10) || proxySet()); } catch (e) { return false; }
 }
@@ -1712,19 +1717,7 @@ function speakText(text, detected, onend) {
   if (!clean) return;
   const sysSpeak = () => {
     if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); if (onend) try { onend(); } catch (e) {} return; }
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = speechLangFor(detected);
-    const rate = parseFloat($("voiceRate").value || "1");
-    u.rate = isNaN(rate) ? 1 : rate;
-    u.pitch = 1;
-    try { const vv = chosenSystemVoice(u.lang); if (vv) u.voice = vv; } catch (e2) {}
-    if (onend) {
-      let __fired = false;
-      const __once = () => { if (__fired) return; __fired = true; try { onend(); } catch (e3) {} };
-      u.onend = __once; u.onerror = __once;
-    }
-    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e3) {}
-    try { speechSynthesis.speak(u); } catch (e) {}
+    sysEnqueue(clean, detected, onend || null);
   };
   if (useEleven()) elevenSpeak(clean, onend, sysSpeak);
   else sysSpeak();
@@ -1748,22 +1741,59 @@ function speakChunk(text, detected, onend) {
   if (useEleven()) { elevenSpeak(text, done, () => sysChunk(text, detected, done)); return; }
   sysChunk(text, detected, done);
 }
-function sysChunk(text, detected, onend) {
+function sysPlayOnce(text, detected, done) {
+  let finished = false;
+  let attemptId = 0;
+  const finish = () => { if (finished) return; finished = true; try { done(); } catch (e) {} };
   try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = speechLangFor(detected);
-    const rate = parseFloat(($("voiceRate") || {}).value || "1");
-    u.rate = isNaN(rate) ? 1 : rate;
-    u.pitch = 1;
-    try { const vv2 = chosenSystemVoice(u.lang); if (vv2) u.voice = vv2; } catch (e2) {}
-    if (onend) {
-      let __fired = false;
-      const __once = () => { if (__fired) return; __fired = true; try { onend(); } catch (e3) {} };
-      u.onend = __once; u.onerror = __once;
-    }
-    try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e2) {}
-    speechSynthesis.speak(u);
-  } catch (e) { if (onend) try { onend(); } catch (e2) {} }
+    if (!("speechSynthesis" in window)) { finish(); return; }
+    const lang = speechLangFor(detected);
+    const rate = parseFloat((($("voiceRate") || {}).value) || "1");
+    const mkUtter = (myAttempt) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      u.rate = isNaN(rate) ? 1 : rate;
+      u.pitch = 1;
+      try { const vv = chosenSystemVoice(lang); if (vv) u.voice = vv; } catch (e2) {}
+      u.onend = () => { if (myAttempt === attemptId) finish(); };
+      u.onerror = () => { if (myAttempt === attemptId) finish(); };
+      return u;
+    };
+    const attempt = (isRetry) => {
+      if (finished) return;
+      const myAttempt = ++attemptId;
+      try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e3) {}
+      if (isRetry) { try { speechSynthesis.cancel(); } catch (e4) {} }
+      speechSynthesis.speak(mkUtter(myAttempt));
+      setTimeout(() => {
+        if (finished || myAttempt !== attemptId) return;
+        let alive = false;
+        try { alive = !!(speechSynthesis.speaking || speechSynthesis.pending); } catch (e5) {}
+        if (alive) return;
+        if (isRetry) { finish(); return; }
+        attempt(true);
+      }, 1800);
+    };
+    attempt(false);
+  } catch (e) { finish(); }
+}
+function pumpSys() {
+  if (sysBusy) return;
+  const job = sysQ.shift();
+  if (!job) return;
+  sysBusy = true;
+  sysPlayOnce(job.text, job.detected, () => {
+    sysBusy = false;
+    if (job.gen === sysGen && job.onend) { try { job.onend(); } catch (e) {} }
+    pumpSys();
+  });
+}
+function sysEnqueue(text, detected, onend) {
+  sysQ.push({ text: text, detected: detected, onend: onend || null, gen: sysGen });
+  pumpSys();
+}
+function sysChunk(text, detected, onend) {
+  sysEnqueue(text, detected, onend);
 }
 function pullSentences(buf) {
   const out = [];
@@ -1788,6 +1818,15 @@ function startCall() {
     if (!welcomeHidden) buildSuggestions();
   }
   stopSpeaking();
+  try {
+    if ("speechSynthesis" in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); }
+  } catch (e) {}
+  try {
+    const unlock = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
+    unlock.volume = 0.01;
+    const pr = unlock.play();
+    if (pr && pr.catch) pr.catch(() => {});
+  } catch (e2) {}
   callActive = true;
   callThinking = false;
   callGen++;
@@ -2434,5 +2473,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a41c74385a5bcbfd',t:'MTc5MDUzMjUwOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
