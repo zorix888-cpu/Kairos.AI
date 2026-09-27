@@ -428,6 +428,26 @@ header h1 {
   </div>
 
   <div class="field">
+    <label>Voice (system)</label>
+    <select id="voicePick">
+      <option value="auto">Auto (recommended)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Voice engine</label>
+    <select id="ttsEngine">
+      <option value="system">System voice (free, no key)</option>
+      <option value="eleven">Adam — ElevenLabs (needs free key)</option>
+    </select>
+  </div>
+
+  <div class="field" id="elevenField">
+    <label>ElevenLabs API key (free tier OK)</label>
+    <input id="elevenKey" type="password" placeholder="paste key to unlock Adam" autocomplete="off" />
+  </div>
+
+  <div class="field">
     <label>Reply language</label>
     <select id="replyLang">
       <option value="auto">Auto (match my language)</option>
@@ -583,6 +603,9 @@ function saveSettings() {
   localStorage.setItem("lm_imgmodel", $("imgModel").value);
   localStorage.setItem("lm_speak", $("autoRead").value);
   localStorage.setItem("lm_rate", $("voiceRate").value);
+  localStorage.setItem("lm_voice", $("voicePick").value);
+  localStorage.setItem("lm_tts", $("ttsEngine").value);
+  localStorage.setItem("lm_eleven", $("elevenKey").value);
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
  } catch (e) {}
@@ -599,6 +622,9 @@ function loadSettings() {
   $("imgModel").value = localStorage.getItem("lm_imgmodel") || "gpt-image-2.5-flare";
   $("autoRead").value = localStorage.getItem("lm_speak") || "off";
   $("voiceRate").value = localStorage.getItem("lm_rate") || "1";
+  $("voicePick").value = localStorage.getItem("lm_voice") || "auto";
+  $("ttsEngine").value = localStorage.getItem("lm_tts") || "system";
+  $("elevenKey").value = localStorage.getItem("lm_eleven") || "";
 }
 $("provider").addEventListener("change", () => {
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
@@ -615,6 +641,9 @@ $("maxTokens").addEventListener("input", saveSettings);
 $("imgModel").addEventListener("change", saveSettings);
 $("autoRead").addEventListener("change", () => { saveSettings(); $("speakBtn").classList.toggle("on", isAutoRead()); if (!isAutoRead()) stopSpeaking(); });
 $("voiceRate").addEventListener("change", saveSettings);
+$("voicePick").addEventListener("change", () => { cachedVoice = null; saveSettings(); });
+$("ttsEngine").addEventListener("change", () => { saveSettings(); toggleEleven(); });
+$("elevenKey").addEventListener("input", saveSettings);
 
 function apiBase() { const p = $("provider").value; return (PROVIDERS[p] && PROVIDERS[p].base) || ""; }
 function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return (c.base || "") + (c.chatPath || "/chat/completions"); }
@@ -925,6 +954,7 @@ async function sendMessage(textOverride) {
   }
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
   const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
+  userBubble.textContent = text;
   const detected = detectScript(text);
   userBubble.parentElement.dir = RTL_LANGS.has(detected) ? "rtl" : "ltr";
 
@@ -1202,6 +1232,72 @@ function cleanForSpeech(text) {
 
 function stopSpeaking() {
   try { if ("speechSynthesis" in window) speechSynthesis.cancel(); } catch (e) {}
+  try { stopEleven(); } catch (e2) {}
+}
+let elevenAudio = null;
+function useEleven() {
+  try { return ($("ttsEngine") || {}).value === "eleven" && ((($("elevenKey") || {}).value || "").trim().length > 10); } catch (e) { return false; }
+}
+function toggleEleven() {
+  const on = ($("ttsEngine") || {}).value === "eleven";
+  const f = $("elevenField");
+  if (f) f.style.display = on ? "flex" : "none";
+}
+function chosenSystemVoice(lang) {
+  try {
+    const want = ($("voicePick") || {}).value || "auto";
+    if (want !== "auto" && "speechSynthesis" in window) {
+      const vs = speechSynthesis.getVoices() || [];
+      const hit = vs.find(v => (v.voiceURI || v.name) === want);
+      if (hit) return hit;
+    }
+  } catch (e) {}
+  return voiceFor(lang);
+}
+function refreshVoiceList() {
+  try {
+    const sel = $("voicePick");
+    if (!sel || !("speechSynthesis" in window)) return;
+    const keep = localStorage.getItem("lm_voice") || sel.value || "auto";
+    const vs = speechSynthesis.getVoices() || [];
+    sel.innerHTML = '<option value="auto">Auto (recommended)</option>' +
+      vs.map(v => '<option value="' + ((v.voiceURI || v.name) + "").replace(/"/g, "") + '">' + ((v.name || "") + " — " + (v.lang || "")).replace(/</g, "&lt;") + "</option>").join("");
+    sel.value = keep;
+    if (sel.value !== keep) sel.value = "auto";
+  } catch (e) {}
+}
+async function elevenSpeak(text, onend, fallback) {
+  const done = (ok) => { if (!ok && fallback) { try { fallback(); } catch (e) {} } else if (onend) { try { onend(); } catch (e) {} } };
+  try {
+    stopEleven();
+    const key = $("elevenKey").value.trim();
+    const ctrl = new AbortController();
+    elevenSpeak._ctrl = ctrl;
+    const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB?output_format=mp3_44100_128", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": key },
+      body: JSON.stringify({ text: (text || "").slice(0, 2000), model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error("eleven " + res.status);
+    const blob = await res.blob();
+    if (!blob || !blob.size) throw new Error("empty audio");
+    const url = URL.createObjectURL(blob);
+    const a = new Audio(url);
+    elevenAudio = a;
+    a.onended = () => { try { URL.revokeObjectURL(url); } catch (e) {} if (elevenAudio === a) elevenAudio = null; done(true); };
+    a.onerror = () => { try { URL.revokeObjectURL(url); } catch (e) {} if (elevenAudio === a) elevenAudio = null; done(false); };
+    await a.play();
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    done(false);
+  }
+}
+function stopEleven() {
+  try { if (elevenSpeak._ctrl) elevenSpeak._ctrl.abort(); } catch (e) {}
+  elevenSpeak._ctrl = null;
+  try { if (elevenAudio) { elevenAudio.pause(); elevenAudio.src = ""; } } catch (e) {}
+  elevenAudio = null;
 }
 
 function isAutoRead() { return $("autoRead").value === "on"; }
@@ -1215,9 +1311,12 @@ function pickVoice(lang) {
     if (!vs.length) return null;
     const want = (lang || "en-US").toLowerCase().split("-")[0];
     const pool = vs.filter(v => (v.lang || "").toLowerCase().split("-")[0] === want);
-    const list = pool.length ? pool : vs;
-    const maleHints = ["male", "daniel", "aaron", "david", "alex", "fred", "george", "james", "john", "mike", "paul", "thomas", "guy", "mark", "ryan", "oliver"];
-    const naturalHints = ["google", "neural", "natural", "premium", "enhanced", "siri", "online"];
+    const banned = ["fred", "pipe organ", "bells", "cellos", "junior", "ralph", "whisper", "zarvox", "trinoids", "bubbles", "boing", "hysterical", "deranged", "echo", "ghost", "monster", "robot", "laugh", "singing", "cartoon"];
+    const isGood = (v) => !banned.some(b => ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase().includes(b));
+    const poolGood = (pool.length ? pool : vs).filter(isGood);
+    const list = poolGood.length ? poolGood : (pool.length ? pool : vs);
+    const maleHints = ["male", "daniel", "aaron", "david", "george", "gordon", "guy", "mark", "ryan", "oliver", "siri voice 1", "siri voice 3", "siri voice 5", "tom", "henry"];
+    const naturalHints = ["siri", "google", "neural", "natural", "premium", "enhanced", "online", "eloquence", "samantha"];
     const score = (v) => {
       const n = ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase();
       let s = 0;
@@ -1241,23 +1340,28 @@ function voiceFor(lang) {
 try {
   if ("speechSynthesis" in window) {
     speechSynthesis.getVoices();
-    speechSynthesis.onvoiceschanged = () => { cachedVoice = null; try { speechSynthesis.getVoices(); } catch (e) {} };
+    speechSynthesis.onvoiceschanged = () => { cachedVoice = null; try { speechSynthesis.getVoices(); } catch (e) {} try { refreshVoiceList(); } catch (e2) {} };
   }
 } catch (e) {}
 
 function speakText(text, detected, onend) {
-  if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); return; }
+  if (!useEleven() && !("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); return; }
   stopSpeaking();
   const clean = cleanForSpeech(text);
   if (!clean) return;
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = speechLangFor(detected);
-  const rate = parseFloat($("voiceRate").value || "1");
-  u.rate = isNaN(rate) ? 1 : rate;
-  u.pitch = 0.95;
-  try { const vv = voiceFor(u.lang); if (vv) u.voice = vv; } catch (e2) {}
-  if (onend) { u.onend = onend; u.onerror = onend; }
-  try { speechSynthesis.speak(u); } catch (e) {}
+  const sysSpeak = () => {
+    if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); if (onend) try { onend(); } catch (e) {} return; }
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = speechLangFor(detected);
+    const rate = parseFloat($("voiceRate").value || "1");
+    u.rate = isNaN(rate) ? 1 : rate;
+    u.pitch = 1;
+    try { const vv = chosenSystemVoice(u.lang); if (vv) u.voice = vv; } catch (e2) {}
+    if (onend) { u.onend = onend; u.onerror = onend; }
+    try { speechSynthesis.speak(u); } catch (e) {}
+  };
+  if (useEleven()) elevenSpeak(clean, onend, sysSpeak);
+  else sysSpeak();
 }
 
 /* ---------- Call mode: live voice conversation ---------- */
@@ -1272,13 +1376,18 @@ function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent =
 function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
 
 function speakChunk(text, detected, onend) {
+  const done = () => { if (onend) try { onend(); } catch (e) {} };
+  if (useEleven()) { elevenSpeak(text, done, () => sysChunk(text, detected, done)); return; }
+  sysChunk(text, detected, done);
+}
+function sysChunk(text, detected, onend) {
   try {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = speechLangFor(detected);
     const rate = parseFloat(($("voiceRate") || {}).value || "1");
     u.rate = isNaN(rate) ? 1 : rate;
-    u.pitch = 0.95;
-    try { const vv2 = voiceFor(u.lang); if (vv2) u.voice = vv2; } catch (e2) {}
+    u.pitch = 1;
+    try { const vv2 = chosenSystemVoice(u.lang); if (vv2) u.voice = vv2; } catch (e2) {}
     if (onend) { u.onend = onend; u.onerror = onend; }
     speechSynthesis.speak(u);
   } catch (e) { if (onend) onend(); }
@@ -1799,6 +1908,8 @@ try {
 
 /* ---------- Boot ---------- */
 loadSettings();
+toggleEleven();
+refreshVoiceList();
 if (!localStorage.getItem("lm_v2free")) {
   localStorage.setItem("lm_v2free", "1");
   if ($("provider").value === "puter") {
@@ -1816,5 +1927,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418938c1be0ab7b',t:'MTc5MDQ5MTg0OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418a41e5ab1e21a',t:'MTc5MDQ5MjUyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
