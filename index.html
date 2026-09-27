@@ -1024,7 +1024,10 @@ async function sendMessage(textOverride) {
         : [model];
       let res = null;
       let __streamDone = false;
-      for (const __tm of __models) {
+      let __netRetried = false;
+      let __plainTried = false;
+      for (let __mi = 0; __mi < __models.length; __mi++) {
+        const __tm = __models[__mi];
         try {
           if (prov.kind === "anthropic") {
             res = await fetch(prov.base + "/messages", {
@@ -1087,6 +1090,24 @@ async function sendMessage(textOverride) {
               if (typing.parentElement) typing.remove();
               renderThrottled(bubble, full);
             }
+          } catch (re) {
+            const __netish = re && re.name !== "AbortError" && (re instanceof TypeError || /load failed|failed to fetch|network/i.test(re.message || ""));
+            if (!__netish || __plainTried || prov.kind === "anthropic") throw re;
+            __plainTried = true;
+            const res2 = await fetch(chatUrl(), {
+              method: "POST",
+              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+              body: JSON.stringify({ model: __tm, messages: [{ role: "system", content: sysText }].concat(apiMessages(24)), stream: false, max_tokens: outTok }),
+              signal: abortCtrl.signal
+            });
+            if (!res2.ok) throw re;
+            const j2 = await res2.json();
+            const c2 = j2.choices && j2.choices[0] && j2.choices[0].message && j2.choices[0].message.content;
+            if (!c2) throw re;
+            full += c2;
+            if (!__gotTok) { __gotTok = true; }
+            if (typing.parentElement) typing.remove();
+            appendStreaming(bubble, full);
           } finally { clearTimeout(__wd); }
           appendStreaming(bubble, full);
           if (__timedOut && !full) { const TE = new Error(__freeChat ? "Free server is too slow right now — try again in a bit" : "Request timed out — try again"); TE.__timeout = true; throw TE; }
@@ -1094,6 +1115,16 @@ async function sendMessage(textOverride) {
           break;
         } catch (fe) {
           if (fe.name === "AbortError") throw fe;
+          const __netErr = (fe instanceof TypeError || /load failed|failed to fetch|network request failed|networkerror|cors|socket hang|econnreset/i.test(fe.message || ""));
+          if (__netErr && __freeChat && !__netRetried) {
+            __netRetried = true;
+            __mi--;
+            if (typing.parentElement) { /* keep spinner */ } else { bubble.innerHTML = "<span class='sys'>(connection hiccup — retrying…)</span>"; }
+            toast("Connection hiccup — retrying…");
+            await new Promise(r => setTimeout(r, 2500));
+            res = null;
+            continue;
+          }
           const lastOne = __tm === __models[__models.length - 1];
           const retryable = __freeChat && !lastOne &&
             (fe.__timeout ||
@@ -1121,8 +1152,10 @@ async function sendMessage(textOverride) {
         m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then send again. No API key needed.";
       } else if (low.includes("too large") || low.includes("token") || low.includes("otpm") || low.includes("limit")) {
         m = "This model's free tier caps output tokens. Switch to a higher-limit model (settings → Get) or send a shorter message.";
-      } else if (low.includes("failed to fetch") || low.includes("networkerror") || low.includes("cors")) {
-        m = "Network/CORS error. Your provider may block browser requests — use a proxy or backend.";
+      } else if (low.includes("failed to fetch") || low.includes("load failed") || low.includes("networkerror") || low.includes("network request failed") || low.includes("cors")) {
+        m = $("provider").value === "pollinations"
+          ? "Couldn't reach the free server — check your internet and resend. (Free servers drop connections sometimes; resending usually works.)"
+          : "Network error reaching your provider — check your internet or try again.";
       }
       bubble.innerHTML = "<span class='err'>⚠️ " + m.replace(/</g, "&lt;") + "</span>";
     }
@@ -1685,6 +1718,7 @@ async function handleCallUtterance(text) {
       toast("Allow the Puter sign-in popup, then start the call again");
       return;
     }
+    if (/load failed|failed to fetch|network/i.test(low)) m = "Connection to the free server failed — check your internet";
     if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
     saveCurrentChat();
     bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
@@ -1904,6 +1938,8 @@ async function sendVision(question, img) {
     const low = String(m).toLowerCase();
     if (low.includes("rate") || low.includes("429") || low.includes("busy")) {
       m = "Free server is busy (1 msg per ~15s) — wait a few seconds and resend.";
+    } else if (low.includes("load failed") || low.includes("failed to fetch") || low.includes("network")) {
+      m = "Couldn't reach the free server — check your internet and resend.";
     } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
       m = "That model refused the image — try again, or switch Provider to Puter for Claude vision.";
     }
@@ -1964,5 +2000,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418c8c088fbfc7d',t:'MTc5MDQ5NDAyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
