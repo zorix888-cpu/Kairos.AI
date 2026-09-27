@@ -353,7 +353,8 @@ header h1 {
   <div class="field">
     <label>Provider</label>
     <select id="provider">
-      <option value="puter">Puter (free Claude, no key)</option>
+      <option value="pollinations">Free Forever (no key, no sign-in)</option>
+      <option value="puter">Puter (Claude quality, uses credits)</option>
       <option value="anthropic">Claude (Anthropic)</option>
       <option value="groq">Groq (free)</option>
       <option value="openai">OpenAI</option>
@@ -441,7 +442,7 @@ header h1 {
     <input id="maxTokens" type="number" min="500" max="16000" step="500" placeholder="6000" inputmode="numeric" />
   </div>
 
-  <p class="hint" id="providerHint"><b>Puter</b> = FREE, no API key. First use pops up a free Puter sign-in — just sign in once, that's normal. Tap the palette button in chat for free image generation. Other providers need their own API key.</p>
+  <p class="hint" id="providerHint"><b>Free Forever</b> = 100% free, no key, no sign-in, no tokens.</p>
   <button class="pill-btn" id="exportBtn" style="width:100%; margin-bottom:14px;">Export chat</button>
   <button class="pill-btn danger" id="clearChatBtn" style="width:100%;">Clear conversation</button>
 </div>
@@ -468,7 +469,8 @@ header h1 {
 const $ = (id) => document.getElementById(id);
 
 const PROVIDERS = {
-  puter:     { kind: "puter",    base: "",                                 model: "claude-opus-4-6" },
+  pollinations: { kind: "openai", base: "https://text.pollinations.ai", chatPath: "/openai", modelsPath: "/models", model: "openai", free: true },
+  puter:     { kind: "puter",    base: "",                                 model: "claude-opus-4-6", free: true },
   anthropic: { kind: "anthropic", base: "https://api.anthropic.com/v1",     model: "claude-sonnet-4-5" },
   groq:      { kind: "openai",    base: "https://api.groq.com/openai/v1",   model: "llama-4-scout-17b-16e-instruct" },
   openai:    { kind: "openai",    base: "https://api.openai.com/v1",        model: "gpt-4o-mini" },
@@ -531,17 +533,21 @@ function applyOwner() {
 
 /* ---------- Hide/show API key field (Puter needs no key) ---------- */
 function toggleKeyField() {
-  const isPuter = $("provider").value === "puter";
-  $("keyField").style.display = isPuter ? "none" : "flex";
-  $("providerHint").innerHTML = isPuter
-    ? "<b>Puter</b> = FREE, no API key. First use pops up a free Puter sign-in — just sign in once, that's normal. Tap the palette button in chat for free image generation."
-    : "This provider needs its own API key. Switch back to <b>Puter</b> anytime for free mode with no key.";
+  const pv = $("provider").value;
+  const cfg = PROVIDERS[pv] || {};
+  $("keyField").style.display = cfg.free ? "none" : "flex";
+  $("providerHint").innerHTML = pv === "pollinations"
+    ? "<b>Free Forever</b> = 100% free, no key, no sign-in, no tokens. Open models (a step below Claude). Note: free server allows ~1 message per 15 seconds."
+    : pv === "puter"
+    ? "<b>Puter</b> = Claude quality. Free starter credits + free sign-in, then pay-as-you-go if you run out. Image EDITS also use Puter."
+    : "This provider needs its own API key. Switch to <b>Free Forever</b> anytime for $0 mode with no key.";
 }
 
 /* ---------- Auth headers (provider-aware) ---------- */
 function authHeaders() {
   const p = $("provider").value;
   const k = $("apiKey").value;
+  if (p === "pollinations") return {};
   if (p === "anthropic") {
     return {
       "x-api-key": k,
@@ -568,7 +574,7 @@ function saveSettings() {
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
 }
 function loadSettings() {
-  const saved = localStorage.getItem("lm_provider") || "puter";
+  const saved = localStorage.getItem("lm_provider") || "pollinations";
   $("provider").value  = PROVIDERS[saved] ? saved : "puter"; // FIX: guard unknown value
   $("apiKey").value    = localStorage.getItem("lm_key") || "";
   const cfg = PROVIDERS[$("provider").value];
@@ -595,9 +601,12 @@ $("autoRead").addEventListener("change", () => { saveSettings(); $("speakBtn").c
 $("voiceRate").addEventListener("change", saveSettings);
 
 function apiBase() { const p = $("provider").value; return (PROVIDERS[p] && PROVIDERS[p].base) || ""; }
+function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return (c.base || "") + (c.chatPath || "/chat/completions"); }
+function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return (c.base || "") + (c.modelsPath || "/models"); }
 function updateStatus() {
   const st = $("status");
-  if ($("provider").value === "puter") { st.textContent = "Free"; st.classList.add("ok"); return; }
+  const _ucfg = PROVIDERS[$("provider").value] || {};
+  if (_ucfg.free) { st.textContent = "Free"; st.classList.add("ok"); return; }
   if (!$("apiKey").value) { st.textContent = "Enter key"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
@@ -648,9 +657,10 @@ async function fetchModels() {
     return;
   }
   // Other providers DO need a key
-  if (!$("apiKey").value) { toast("Enter your API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
+  const _fcfg = PROVIDERS[$("provider").value] || {};
+  if (!_fcfg.free && !$("apiKey").value) { toast("Enter your API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
   try {
-    const res = await fetch(apiBase() + "/models", { headers: authHeaders() });
+    const res = await fetch(modelsUrl(), { headers: authHeaders() });
     if (!res.ok) {
       let msg = "HTTP " + res.status;
       if (res.status === 401) msg = "API key rejected (401) — check your key is correct";
@@ -658,7 +668,8 @@ async function fetchModels() {
       throw new Error(msg);
     }
     const j = await res.json();
-    const ids = (j.data || []).map(m => m.id || m.name).filter(Boolean);
+    const _arr = Array.isArray(j) ? j : (j.data || []);
+    const ids = _arr.map(m => (typeof m === "string" ? m : (m.id || m.name))).filter(Boolean);
     if (!ids.length) throw new Error("no models returned");
     $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
     const cur = $("modelName").value;
@@ -670,7 +681,15 @@ async function fetchModels() {
     saveSettings();
     toast("Models loaded — using " + $("modelName").value);
   } catch (e) {
-    toast("Couldn't list models: " + e.message);
+    if ($("provider").value === "pollinations") {
+      const ids = ["openai", "openai-fast", "mistral", "llama"];
+      $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
+      if (!ids.includes($("modelName").value)) $("modelName").value = ids[0];
+      saveSettings();
+      toast("Using free models — " + $("modelName").value);
+    } else {
+      toast("Couldn't list models: " + e.message);
+    }
   } finally {
     btn.disabled = false; btn.textContent = "Get";
   }
@@ -856,7 +875,8 @@ async function sendMessage(textOverride) {
     generateImage(text);
     return;
   }
-  if ($("provider").value !== "puter" && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
+  const _pcfg = PROVIDERS[$("provider").value] || {};
+  if (!_pcfg.free && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
   if (!$("modelName").value) { toast("Open settings → Get to pick a model"); openSheet(); return; }
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
   const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
@@ -876,6 +896,7 @@ async function sendMessage(textOverride) {
   const model = $("modelName").value;
   const langPref = $("replyLang").value;
   const maxTok = Math.max(500, Math.min(16000, parseInt($("maxTokens").value, 10) || 6000));
+  const outTok = $("provider").value === "pollinations" ? Math.min(maxTok, 2000) : maxTok;
   let sysText = SYSTEM_PROMPT;
   if (langPref === "auto") {
     if (detected !== "en") sysText += " The user is writing in " + detected + "; reply in that language.";
@@ -905,14 +926,15 @@ async function sendMessage(textOverride) {
         });
       } else {
         const payload = [{ role: "system", content: sysText }].concat(apiMessages());
-        res = await fetch(prov.base + "/chat/completions", {
+        res = await fetch(chatUrl(), {
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ model: model, messages: payload, stream: true, max_tokens: maxTok, temperature: 0.7 }),
+          body: JSON.stringify({ model: model, messages: payload, stream: true, max_tokens: outTok, temperature: 0.7 }),
           signal: abortCtrl.signal,
         });
       }
       if (!res.ok) {
+        if (res.status === 429 && $("provider").value === "pollinations") throw new Error("Free server is busy (1 msg per ~15s) — wait a few seconds and resend");
         const errTxt = await res.text();
         let msg = "HTTP " + res.status;
         try {
@@ -988,20 +1010,29 @@ $("imgBtn").onclick = () => {
   toast(imageMode ? (pendingImage ? "Image mode — describe the edit, then send" : "Image mode ON — describe a picture, or attach a photo to edit") : "Chat mode — back to text");
 };
 
+function pollinationsImageUrl(prompt) {
+  const seed = Math.floor(Math.random() * 1000000);
+  return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
+    "?width=1024&height=1024&seed=" + seed + "&model=flux&nologo=true&private=true&referrer=hakimi";
+}
+function loadRemoteImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const timer = setTimeout(() => reject(new Error("Image server timed out — try again")), 120000);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error("Image server failed — try again")); };
+    img.src = url;
+  });
+}
+
 async function generateImage(prompt) {
-  // Free image gen only works on Puter — auto-switch with a heads-up
-  if ($("provider").value !== "puter") {
-    $("provider").value = "puter";
-    $("modelName").value = PROVIDERS.puter.model;
-    saveSettings(); updateStatus(); toggleKeyField();
-    toast("Switched to Puter for free image generation");
-  }
-  if (typeof puter === "undefined" || !puter.ai || !puter.ai.txt2img) {
+  // New pictures = 100% free for everyone (Pollinations). Only EDITS use Puter.
+  const editSrc = pendingImage;
+  clearAttachment();
+  if (editSrc && (typeof puter === "undefined" || !puter.ai || !puter.ai.txt2img)) {
     toast("Puter.js didn't load — check your connection");
     return;
   }
-  const editSrc = pendingImage;
-  clearAttachment();
   const userBubble = addMessage("user");
   if (editSrc) {
     userBubble.innerHTML = "";
@@ -1020,20 +1051,23 @@ async function generateImage(prompt) {
   bubble.appendChild(typing);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   try {
-    const imgModel = $("imgModel").value || "gpt-image-2.5-flare";
-    const modelsToTry = editSrc ? [imgModel, "black-forest-labs/flux-2-dev"] : [imgModel];
-    let img = null, lastErr = null;
-    for (const m of modelsToTry) {
-      try {
-        const opts = { model: m };
-        if (editSrc) opts.input_image = editSrc.dataUrl;
-        img = await puter.ai.txt2img(prompt, opts);
-        if (editSrc && m !== imgModel) toast("Edit-capable model used (" + m + ")");
-        lastErr = null;
-        break;
-      } catch (e2) { lastErr = e2; img = null; }
+    let img = null;
+    if (editSrc) {
+      const imgModel = $("imgModel").value || "gpt-image-2.5-flare";
+      const modelsToTry = [imgModel, "black-forest-labs/flux-2-dev"];
+      let lastErr = null;
+      for (const m of modelsToTry) {
+        try {
+          img = await puter.ai.txt2img(prompt, { model: m, input_image: editSrc.dataUrl });
+          if (m !== imgModel) toast("Edit-capable model used (" + m + ")");
+          lastErr = null;
+          break;
+        } catch (e2) { lastErr = e2; img = null; }
+      }
+      if (!img) throw (lastErr || new Error("Image edit failed"));
+    } else {
+      img = await loadRemoteImage(pollinationsImageUrl(prompt));
     }
-    if (!img) throw (lastErr || new Error("Image generation failed"));
     if (typing.parentElement) typing.remove();
     bubble.innerHTML = "";
     img.classList.add("gen");
@@ -1059,7 +1093,9 @@ async function generateImage(prompt) {
       else if (e.error && e.error.message) m = e.error.message;
     }
     const low = String(m).toLowerCase();
-    if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
+    if (low.includes("credit") || low.includes("balance") || low.includes("insufficient") || low.includes("payment") || low.includes("quota") || low.includes("out of")) {
+      m = "Puter credits are out — photo EDITS need Puter, but making new pictures is still 100% free. Remove the photo and just describe a picture.";
+    } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
       m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then try again.";
     }
     bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
@@ -1124,12 +1160,9 @@ function startCall() {
   if (!SR) { toast("Live calls need Chrome, Edge, or Safari"); return; }
   if (!("speechSynthesis" in window)) { toast("This browser can't speak — try Chrome or Safari"); return; }
   if (callActive) return;
-  if ($("provider").value !== "puter") {
-    $("provider").value = "puter";
-    $("modelName").value = PROVIDERS.puter.model;
-    saveSettings(); updateStatus(); toggleKeyField();
-  }
-  if (typeof puter === "undefined" || !puter.ai) { toast("Puter.js didn't load — check your connection"); return; }
+  const _ccfg = PROVIDERS[$("provider").value] || {};
+  if (!_ccfg.free && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if ($("provider").value === "puter" && (typeof puter === "undefined" || !puter.ai)) { toast("Puter.js didn't load — check your connection"); return; }
   if (imageMode) {
     imageMode = false;
     $("imgBtn").classList.remove("on");
@@ -1227,11 +1260,22 @@ async function handleCallUtterance(text) {
   const model = $("modelName").value || PROVIDERS.puter.model;
   let full = "";
   try {
-    const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages()), { model: model });
-    if (resp && typeof resp[Symbol.asyncIterator] === "function") {
-      for await (const part of resp) { if (part && part.text) full += part.text; }
+    if ($("provider").value === "puter") {
+      const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages()), { model: model });
+      if (resp && typeof resp[Symbol.asyncIterator] === "function") {
+        for await (const part of resp) { if (part && part.text) full += part.text; }
+      } else {
+        full = extractChatText(resp);
+      }
     } else {
-      full = extractChatText(resp);
+      const res = await fetch(chatUrl(), {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ model: model, messages: [{ role: "system", content: sysText }].concat(apiMessages()) })
+      });
+      if (!res.ok) throw new Error(res.status === 429 ? "Free server is busy (rate limit) — wait a few seconds and try again" : "HTTP " + res.status);
+      const j = await res.json();
+      full = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
     }
     if (!full) full = "I didn't quite get that — say it again?";
   } catch (e) {
@@ -1364,13 +1408,12 @@ function extractChatText(resp) {
 }
 
 async function sendVision(question, img) {
-  if ($("provider").value !== "puter") {
-    $("provider").value = "puter";
-    $("modelName").value = PROVIDERS.puter.model;
+  if ($("provider").value !== "pollinations") {
+    $("provider").value = "pollinations";
+    $("modelName").value = PROVIDERS.pollinations.model;
     saveSettings(); updateStatus(); toggleKeyField();
-    toast("Switched to Puter for free vision");
+    toast("Switched to Free Forever mode for vision");
   }
-  if (typeof puter === "undefined" || !puter.ai) { toast("Puter.js didn't load — check your connection"); return; }
   const q = question || "What do you see in this image? Describe it in detail.";
   const userBubble = addMessage("user");
   userBubble.innerHTML = "";
@@ -1389,21 +1432,42 @@ async function sendVision(question, img) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   let full = "";
-  const modelsToTry = [$("modelName").value || PROVIDERS.puter.model, "gpt-4o-mini"];
+  const langPref = $("replyLang").value;
+  let sysText = SYSTEM_PROMPT;
+  if (langPref !== "auto") sysText += " Reply in " + langPref + ".";
+  const modelsToTry = [$("modelName").value || "openai", "openai"];
   try {
     let lastErr = null;
     for (const vm of modelsToTry) {
       try {
-        const resp = await puter.ai.chat(q, img.dataUrl, { model: vm, stream: true });
+        const vMessages = [{ role: "system", content: sysText }].concat(apiMessages().slice(0, -1)).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image_url", image_url: { url: img.dataUrl } }] }]);
+        const res = await fetch(chatUrl(), {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify({ model: vm, messages: vMessages, stream: true, max_tokens: 2000, temperature: 0.7 })
+        });
+        if (!res.ok) throw new Error(res.status === 429 ? "Free server is busy (rate limit) — wait a few seconds and resend" : "HTTP " + res.status);
         full = "";
-        if (resp && typeof resp[Symbol.asyncIterator] === "function") {
-          for await (const part of resp) {
-            if (part && part.text) full += part.text;
-            if (typing.parentElement) typing.remove();
-            appendStreaming(bubble, full);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let vbuf = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          vbuf += decoder.decode(value, { stream: true });
+          let nl;
+          while ((nl = vbuf.indexOf("\n")) >= 0) {
+            const line = vbuf.slice(0, nl).trim();
+            vbuf = vbuf.slice(nl + 1);
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (data === "[DONE]") break;
+            try {
+              const obj = JSON.parse(data);
+              const delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+              if (delta) full += delta;
+            } catch (pe) {}
           }
-        } else {
-          full = extractChatText(resp);
           if (typing.parentElement) typing.remove();
           appendStreaming(bubble, full);
         }
@@ -1427,8 +1491,10 @@ async function sendVision(question, img) {
       else if (e.error && e.error.message) m = e.error.message;
     }
     const low = String(m).toLowerCase();
-    if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-      m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then try again.";
+    if (low.includes("rate") || low.includes("429") || low.includes("busy")) {
+      m = "Free server is busy (1 msg per ~15s) — wait a few seconds and resend.";
+    } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
+      m = "That model refused the image — try again, or switch Provider to Puter for Claude vision.";
     }
     bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
   }
@@ -1468,13 +1534,22 @@ try {
 
 /* ---------- Boot ---------- */
 loadSettings();
+if (!localStorage.getItem("lm_v2free")) {
+  localStorage.setItem("lm_v2free", "1");
+  if ($("provider").value === "puter") {
+    $("provider").value = "pollinations";
+    $("modelName").value = PROVIDERS.pollinations.model;
+    saveSettings(); updateStatus(); toggleKeyField();
+    setTimeout(() => toast("Switched to Free Forever mode — no key, no sign-in"), 900);
+  }
+}
 $("speakBtn").classList.toggle("on", isAutoRead());
 applyOwner();
 if (!chats.length) newChat(); else loadChat(chats[0].id);
 buildSuggestions();
 updateStatus();
 toggleKeyField();
-if ($("apiKey").value || $("provider").value === "puter") fetchModels(); // FIX: load free models too
+if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418474ee993aac0',t:'MTc5MDQ4ODcyNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
