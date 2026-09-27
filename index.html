@@ -560,6 +560,7 @@ function authHeaders() {
 
 /* ---------- Settings persistence ---------- */
 function saveSettings() {
+ try {
   const p = $("provider").value;
   localStorage.setItem("lm_provider", p);
   localStorage.setItem("lm_key", $("apiKey").value);
@@ -572,6 +573,7 @@ function saveSettings() {
   localStorage.setItem("lm_rate", $("voiceRate").value);
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
+ } catch (e) {}
 }
 function loadSettings() {
   const saved = localStorage.getItem("lm_provider") || "pollinations";
@@ -877,7 +879,11 @@ async function sendMessage(textOverride) {
   }
   const _pcfg = PROVIDERS[$("provider").value] || {};
   if (!_pcfg.free && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
-  if (!$("modelName").value) { toast("Open settings → Get to pick a model"); openSheet(); return; }
+  if (!$("modelName").value) {
+    const _def = PROVIDERS[$("provider").value] || {};
+    if (_def.model) { $("modelName").value = _def.model; saveSettings(); }
+    else { toast("Open settings → Get to pick a model"); openSheet(); return; }
+  }
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
   const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
   const detected = detectScript(text);
@@ -916,34 +922,55 @@ async function sendMessage(textOverride) {
         appendStreaming(bubble, full);
       }
     } else {
-      let res;
-      if (prov.kind === "anthropic") {
-        res = await fetch(prov.base + "/messages", {
-          method: "POST",
-          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ model: model, max_tokens: maxTok, system: sysText, messages: apiMessages(), stream: true }),
-          signal: abortCtrl.signal,
-        });
-      } else {
-        const payload = [{ role: "system", content: sysText }].concat(apiMessages());
-        res = await fetch(chatUrl(), {
-          method: "POST",
-          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ model: model, messages: payload, stream: true, max_tokens: outTok, temperature: 0.7 }),
-          signal: abortCtrl.signal,
-        });
-      }
-      if (!res.ok) {
-        if (res.status === 429 && $("provider").value === "pollinations") throw new Error("Free server is busy (1 msg per ~15s) — wait a few seconds and resend");
-        const errTxt = await res.text();
-        let msg = "HTTP " + res.status;
+      const __freeChat = (providerKey === "pollinations" && prov.kind === "openai");
+      const __models = __freeChat
+        ? [model, "openai", "openai-fast", "mistral"].filter((v, i, a) => v && a.indexOf(v) === i)
+        : [model];
+      let res = null;
+      for (const __tm of __models) {
         try {
-          const j = JSON.parse(errTxt);
-          if (j.error && j.error.message) msg = j.error.message;
-          else if (j.type === "error" && j.error && j.error.message) msg = j.error.message;
-        } catch (e) {}
-        throw new Error(msg);
+          if (prov.kind === "anthropic") {
+            res = await fetch(prov.base + "/messages", {
+              method: "POST",
+              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+              body: JSON.stringify({ model: model, max_tokens: maxTok, system: sysText, messages: apiMessages(), stream: true }),
+              signal: abortCtrl.signal,
+            });
+          } else {
+            const payload = [{ role: "system", content: sysText }].concat(apiMessages());
+            res = await fetch(chatUrl(), {
+              method: "POST",
+              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+              body: JSON.stringify({ model: __tm, messages: payload, stream: true, max_tokens: outTok, temperature: 0.7 }),
+              signal: abortCtrl.signal,
+            });
+          }
+          if (!res.ok) {
+            if (res.status === 429 && $("provider").value === "pollinations") throw new Error("Free server is busy (1 msg per ~15s) — wait a few seconds and resend");
+            const errTxt = await res.text();
+            let msg = "HTTP " + res.status;
+            try {
+              const j = JSON.parse(errTxt);
+              if (j.error && j.error.message) msg = j.error.message;
+              else if (j.type === "error" && j.error && j.error.message) msg = j.error.message;
+            } catch (e) {}
+            const E = new Error(msg);
+            E.__status = res.status;
+            throw E;
+          }
+          if (__tm !== model) { $("modelName").value = __tm; saveSettings(); toast("Free model auto-switched to " + __tm); }
+          break;
+        } catch (fe) {
+          if (fe.name === "AbortError") throw fe;
+          const lastOne = __tm === __models[__models.length - 1];
+          const retryable = __freeChat && !lastOne &&
+            ((fe.__status && [400, 402, 403, 404, 422].indexOf(fe.__status) >= 0) ||
+             /model|tier|anonymous|not found|not available|payment|credit|quota|disabled|unavailable|overloaded/i.test(fe.message || ""));
+          if (!retryable) throw fe;
+          res = null;
+        }
       }
+      if (!res) throw new Error("Free server failed — try again in a bit");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -1155,6 +1182,24 @@ let callGen = 0;
 function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent = t; }
 function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
 
+function speakChunk(text, detected, onend) {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = speechLangFor(detected);
+    const rate = parseFloat(($("voiceRate") || {}).value || "1");
+    u.rate = isNaN(rate) ? 1 : rate;
+    if (onend) { u.onend = onend; u.onerror = onend; }
+    speechSynthesis.speak(u);
+  } catch (e) { if (onend) onend(); }
+}
+function pullSentences(buf) {
+  const out = [];
+  const re = /[^.!?。！？]+[.!?。！？]+/g;
+  let m, last = 0;
+  while ((m = re.exec(buf)) !== null) { out.push(m[0].trim()); last = m.index + m[0].length; }
+  return { sentences: out.filter(s => s.length > 1), rest: buf.slice(last) };
+}
+
 function startCall() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast("Live calls need Chrome, Edge, or Safari"); return; }
@@ -1186,6 +1231,8 @@ function endCall(silent) {
   callThinking = false;
   callGen++;
   try { if (callRecog) callRecog.abort(); } catch (e) {}
+  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
+  abortCtrl = null;
   callRecog = null;
   stopSpeaking();
   $("callOverlay").classList.remove("open");
@@ -1240,6 +1287,7 @@ async function handleCallUtterance(text) {
   if (!callActive) return;
   const myGen = callGen;
   callThinking = true;
+  abortCtrl = new AbortController();
   setCallStatus("Thinking…");
   setCallTranscript("You: " + text);
   const userBubble = addMessage("user");
@@ -1251,34 +1299,127 @@ async function handleCallUtterance(text) {
   bubble.appendChild(typing);
   const detected = detectScript(text);
   const langPref = $("replyLang").value;
-  let sysText = SYSTEM_PROMPT + " Keep replies short and conversational (this is a voice call — no long lists, no code unless asked).";
+  let sysText = SYSTEM_PROMPT + " Reply in 1-3 SHORT sentences max, conversational (voice call — no lists, no code unless asked).";
   if (langPref === "auto") {
     if (detected !== "en") sysText += " The user is speaking " + detected + "; reply in that language.";
   } else {
     sysText += " Reply in " + langPref + ".";
   }
-  const model = $("modelName").value || PROVIDERS.puter.model;
-  let full = "";
-  try {
-    if ($("provider").value === "puter") {
-      const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages()), { model: model });
-      if (resp && typeof resp[Symbol.asyncIterator] === "function") {
-        for await (const part of resp) { if (part && part.text) full += part.text; }
-      } else {
-        full = extractChatText(resp);
-      }
-    } else {
-      const res = await fetch(chatUrl(), {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ model: model, messages: [{ role: "system", content: sysText }].concat(apiMessages()) })
-      });
-      if (!res.ok) throw new Error(res.status === 429 ? "Free server is busy (rate limit) — wait a few seconds and try again" : "HTTP " + res.status);
-      const j = await res.json();
-      full = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
+  const isPuter = $("provider").value === "puter";
+  const callTry = isPuter
+    ? [($("modelName").value || PROVIDERS.puter.model)]
+    : ["openai-fast", "openai", ($("modelName").value || "openai")].filter((v, i, a) => v && a.indexOf(v) === i);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  let full = "", pendingBuf = "";
+  let firstToken = false, streamDone = false, speechPending = 0, spokeAny = false;
+  let slowTimer = setTimeout(() => { if (callActive && myGen === callGen && !firstToken) setCallStatus("Still thinking… (free server can be slow)"); }, 7000);
+  const maybeFinish = () => {
+    if (!callActive || myGen !== callGen) return;
+    if (streamDone && speechPending === 0 && callThinking) {
+      callThinking = false;
+      abortCtrl = null;
+      callListen();
     }
-    if (!full) full = "I didn't quite get that — say it again?";
+  };
+  const queueSpeech = (t) => {
+    const clean = cleanForSpeech(t);
+    if (!clean || myGen !== callGen || !callActive) return;
+    spokeAny = true;
+    setCallStatus("Speaking… (tap interrupt to cut in)");
+    speechPending++;
+    speakChunk(clean, detected, () => { speechPending--; maybeFinish(); });
+  };
+  const onDelta = (delta) => {
+    if (!delta) return;
+    full += delta;
+    pendingBuf += delta;
+    if (!firstToken) { firstToken = true; if (slowTimer) clearTimeout(slowTimer); }
+    if (typing.parentElement) typing.remove();
+    appendStreaming(bubble, full);
+    const pulled = pullSentences(pendingBuf);
+    pendingBuf = pulled.rest;
+    pulled.sentences.forEach(queueSpeech);
+  };
+  try {
+    let fatalErr = null, did429 = false;
+    for (let round = 0; round < 2; round++) {
+      if (myGen !== callGen || !callActive) return;
+      for (const cm of callTry) {
+        if (myGen !== callGen || !callActive) return;
+        try {
+          if (isPuter) {
+            const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages()), { model: cm, stream: true });
+            if (resp && typeof resp[Symbol.asyncIterator] === "function") {
+              for await (const part of resp) {
+                if (myGen !== callGen || !callActive) return;
+                if (part && part.text) onDelta(part.text);
+              }
+            } else {
+              onDelta(extractChatText(resp));
+            }
+          } else {
+            const res = await fetch(chatUrl(), {
+              method: "POST",
+              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+              body: JSON.stringify({ model: cm, messages: [{ role: "system", content: sysText }].concat(apiMessages()), stream: true, max_tokens: 400 }),
+              signal: abortCtrl.signal
+            });
+            if (!res.ok) {
+              const E = new Error(res.status === 429 ? "429 Free server is busy — retrying" : "HTTP " + res.status);
+              E.__status = res.status;
+              throw E;
+            }
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let sbuf = "";
+            while (true) {
+              if (myGen !== callGen || !callActive) { try { reader.cancel(); } catch (e0) {} return; }
+              const { value, done } = await reader.read();
+              if (done) break;
+              sbuf += decoder.decode(value, { stream: true });
+              let nl;
+              while ((nl = sbuf.indexOf("\n")) >= 0) {
+                const line = sbuf.slice(0, nl).trim();
+                sbuf = sbuf.slice(nl + 1);
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (data === "[DONE]") break;
+                try {
+                  const obj = JSON.parse(data);
+                  const d = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+                  if (d) onDelta(d);
+                } catch (pe) {}
+              }
+            }
+          }
+          fatalErr = null;
+          break;
+        } catch (ce) {
+          if (ce.name === "AbortError") throw ce;
+          fatalErr = ce;
+        }
+      }
+      if (full || !fatalErr) break;
+      const m429 = /429|rate|busy/i.test((fatalErr && fatalErr.message) || "");
+      if (m429 && !did429) {
+        did429 = true;
+        setCallStatus("Free server is busy — retrying…");
+        setCallTranscript("One sec — the free server needs a breather…");
+        await sleep(9000);
+        if (myGen !== callGen || !callActive) return;
+        fatalErr = null;
+      } else break;
+    }
+    if (slowTimer) clearTimeout(slowTimer);
+    if (!full) throw (fatalErr || new Error("empty response"));
   } catch (e) {
+    if (slowTimer) clearTimeout(slowTimer);
+    if (typing.parentElement) typing.remove();
+    if (e.name === "AbortError") {
+      if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+      saveCurrentChat();
+      return;
+    }
     full = "";
     let m = "Sorry — say that again";
     if (e) {
@@ -1287,7 +1428,6 @@ async function handleCallUtterance(text) {
       else if (e.error && e.error.message) m = e.error.message;
     }
     const low = String(m).toLowerCase();
-    if (typing.parentElement) typing.remove();
     if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
       bubble.innerHTML = "<span class='err'>⚠️ Puter needs a free sign-in — allow the popup once, then call again.</span>";
       setCallTranscript("Sign-in needed — allow the popup, then call again.");
@@ -1306,15 +1446,16 @@ async function handleCallUtterance(text) {
     appendStreaming(bubble, full);
     conversation.push({ role: "assistant", content: full });
     saveCurrentChat();
-    setCallStatus("Speaking… (tap interrupt to cut in)");
     setCallTranscript("HAKIMI: " + full.slice(0, 200));
-    speakText(full, detected, () => {
-      if (!callActive || myGen !== callGen) return;
-      callThinking = false;
-      callListen();
-    });
+    const tail = pendingBuf.trim();
+    if (tail) queueSpeech(tail);
+    streamDone = true;
+    if (!spokeAny) { callThinking = false; abortCtrl = null; callListen(); return; }
+    maybeFinish();
   } else {
+    streamDone = true;
     callThinking = false;
+    abortCtrl = null;
     callListen();
   }
 }
@@ -1324,6 +1465,8 @@ $("endCallBtn").onclick = () => endCall(false);
 $("interruptBtn").onclick = () => {
   if (!callActive) return;
   callGen++;
+  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
+  abortCtrl = null;
   stopSpeaking();
   callThinking = false;
   setCallStatus("Listening…");
@@ -1551,5 +1694,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a41874bd8d91ab21',t:'MTc5MDQ5MDU4Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
