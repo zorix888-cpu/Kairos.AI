@@ -8,6 +8,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://js.puter.com/v2/"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" />
 
 <style>
@@ -273,6 +274,9 @@ header h1 {
       <button class="pill-btn" id="fetchModelsBtn" type="button">Get</button>
     </div>
     <datalist id="modelList">
+      <option value="claude-sonnet-5"></option>
+      <option value="claude-opus-5-5"></option>
+      <option value="claude-haiku-4-5"></option>
       <option value="claude-sonnet-4-5"></option>
       <option value="claude-opus-4-5"></option>
       <option value="llama-4-scout-17b-16e-instruct"></option>
@@ -298,7 +302,12 @@ header h1 {
     </select>
   </div>
 
-  <p class="hint">For Claude, get a key at console.anthropic.com. Your key + settings stay only in this browser. If your provider blocks browser requests (CORS), you'll need a small proxy.</p>
+  <div class="field">
+    <label>Max output tokens</label>
+    <input id="maxTokens" type="number" min="500" max="16000" step="500" placeholder="6000" inputmode="numeric" />
+  </div>
+
+  <p class="hint"><b>Puter</b> = free Claude, no key (sign in to a free Puter account to cover usage). For the <b>Anthropic</b> option, get a key at console.anthropic.com (paid). Your settings stay only in this browser.</p>
   <button class="pill-btn" id="exportBtn" style="width:100%; margin-bottom:14px;">Export chat</button>
   <button class="pill-btn danger" id="clearChatBtn" style="width:100%;">Clear conversation</button>
 </div>
@@ -336,6 +345,11 @@ const SUGGESTIONS = [
   "Write a short poem about time",
   "Summarise the history of art",
   "Help me draft a professional email"
+];
+
+const PUTER_MODELS = [
+  "claude-sonnet-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-5-fast",
+  "claude-fable-5-1", "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-5", "claude-sonnet-4-5"
 ];
 
 const SYSTEM_PROMPT = "You are HAKIMI, a highly capable AI assistant owned and operated by the user (the owner of this app). " +
@@ -391,16 +405,18 @@ function saveSettings() {
   localStorage.setItem("lm_model", $("modelName").value);
   localStorage.setItem("lm_owner", $("ownerName").value);
   localStorage.setItem("lm_lang", $("replyLang").value);
+  localStorage.setItem("lm_maxtok", $("maxTokens").value);
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
 }
 function loadSettings() {
-  $("provider").value  = localStorage.getItem("lm_provider") || "anthropic";
+  $("provider").value  = localStorage.getItem("lm_provider") || "puter";
   $("apiKey").value    = localStorage.getItem("lm_key") || "";
   const cfg = PROVIDERS[$("provider").value];
   $("modelName").value = localStorage.getItem("lm_model") || (cfg ? cfg.model : "");
   $("ownerName").value = localStorage.getItem("lm_owner") || "";
   $("replyLang").value = localStorage.getItem("lm_lang") || "auto";
+  $("maxTokens").value = localStorage.getItem("lm_maxtok") || "6000";
 }
 $("provider").addEventListener("change", () => {
   const cfg = PROVIDERS[$("provider").value];
@@ -411,10 +427,12 @@ $("apiKey").addEventListener("input", saveSettings);
 $("modelName").addEventListener("input", saveSettings);
 $("ownerName").addEventListener("input", () => { saveSettings(); applyOwner(); });
 $("replyLang").addEventListener("change", saveSettings);
+$("maxTokens").addEventListener("input", saveSettings);
 
 function apiBase() { const p = $("provider").value; return (PROVIDERS[p] && PROVIDERS[p].base) || ""; }
 function updateStatus() {
   const st = $("status");
+  if ($("provider").value === "puter") { st.textContent = "Free"; st.classList.add("ok"); return; }
   if (!$("apiKey").value) { st.textContent = "Enter key"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
@@ -454,9 +472,24 @@ function renderMarkdown(text) {
 async function fetchModels() {
   if (!$("apiKey").value) { toast("Enter your API key first"); openSheet(); return; }
   const btn = $("fetchModelsBtn"); btn.disabled = true; btn.textContent = "…";
+  if ($("provider").value === "puter") {
+    const ids = PUTER_MODELS;
+    $("modelList").innerHTML = ids.map(id => '<option value="' + id + '"></option>').join("");
+    const cur = $("modelName").value;
+    if (!cur || !ids.includes(cur)) $("modelName").value = ids[0];
+    saveSettings();
+    toast("Claude models loaded — using " + $("modelName").value);
+    btn.disabled = false; btn.textContent = "Get";
+    return;
+  }
   try {
     const res = await fetch(apiBase() + "/models", { headers: authHeaders() });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) {
+      let msg = "HTTP " + res.status;
+      if (res.status === 401) msg = "API key rejected (401) — check your key is correct";
+      else if (res.status === 403) msg = "Forbidden (403) — key may lack model access";
+      throw new Error(msg);
+    }
     const j = await res.json();
     const ids = (j.data || []).map(m => m.id || m.name).filter(Boolean);
     if (!ids.length) throw new Error("no models returned");
@@ -520,7 +553,7 @@ async function sendMessage(textOverride) {
   const input = $("userInput");
   const text = (textOverride != null ? textOverride : input.value).trim();
   if (!text) return;
-  if (!$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if ($("provider").value !== "puter" && !$("apiKey").value) { toast("Open settings and paste your API key"); openSheet(); return; }
   if (!$("modelName").value) { toast("Open settings → Get to pick a model"); openSheet(); return; }
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
   const userBubble = addMessage("user"); conversation.push({ role: "user", content: text });
@@ -539,6 +572,7 @@ async function sendMessage(textOverride) {
   const prov = PROVIDERS[providerKey];
   const model = $("modelName").value;
   const langPref = $("replyLang").value;
+  const maxTok = Math.max(500, Math.min(16000, parseInt($("maxTokens").value, 10) || 6000));
   let sysText = SYSTEM_PROMPT;
   if (langPref === "auto") {
     if (detected !== "en") sysText += " The user is writing in " + detected + "; reply in that language.";
@@ -548,60 +582,71 @@ async function sendMessage(textOverride) {
 
   let full = "";
   try {
-    let res;
-    if (prov.kind === "anthropic") {
-      res = await fetch(prov.base + "/messages", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ model: model, max_tokens: 2000, system: sysText, messages: conversation, stream: true }),
-        signal: abortCtrl.signal,
-      });
-    } else {
-      const payload = [{ role: "system", content: sysText }].concat(conversation);
-      res = await fetch(prov.base + "/chat/completions", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ model: model, messages: payload, stream: true, max_tokens: 2000, temperature: 0.7 }),
-        signal: abortCtrl.signal,
-      });
-    }
-    if (!res.ok) {
-      const errTxt = await res.text();
-      let msg = "HTTP " + res.status;
-      try {
-        const j = JSON.parse(errTxt);
-        if (j.error && j.error.message) msg = j.error.message;
-        else if (j.type === "error" && j.error && j.error.message) msg = j.error.message;
-      } catch (e) {}
-      throw new Error(msg);
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let nl;
-      while ((nl = buffer.indexOf("\n")) >= 0) {
-        let line = buffer.slice(0, nl).trim();
-        buffer = buffer.slice(nl + 1);
-        if (!line.startsWith("data:")) continue;
-        const data = line.slice(5).trim();
-        if (data === "[DONE]") break;
-        try {
-          const obj = JSON.parse(data);
-          let delta = null;
-          if (prov.kind === "anthropic") {
-            if (obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") delta = obj.delta.text;
-          } else {
-            delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
-          }
-          if (delta) full += delta;
-        } catch (e) {}
+    if (prov.kind === "puter") {
+      if (typeof puter === "undefined" || !puter.ai) throw new Error("Puter.js didn't load — check your connection");
+      const messages = [{ role: "system", content: sysText }].concat(conversation);
+      const resp = await puter.ai.chat(messages, { model: model, stream: true });
+      for await (const part of resp) {
+        if (part && part.text) full += part.text;
+        typing.remove();
+        appendStreaming(bubble, full);
       }
-      typing.remove();
-      appendStreaming(bubble, full);
+    } else {
+      let res;
+      if (prov.kind === "anthropic") {
+        res = await fetch(prov.base + "/messages", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify({ model: model, max_tokens: maxTok, system: sysText, messages: conversation, stream: true }),
+          signal: abortCtrl.signal,
+        });
+      } else {
+        const payload = [{ role: "system", content: sysText }].concat(conversation);
+        res = await fetch(prov.base + "/chat/completions", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify({ model: model, messages: payload, stream: true, max_tokens: maxTok, temperature: 0.7 }),
+          signal: abortCtrl.signal,
+        });
+      }
+      if (!res.ok) {
+        const errTxt = await res.text();
+        let msg = "HTTP " + res.status;
+        try {
+          const j = JSON.parse(errTxt);
+          if (j.error && j.error.message) msg = j.error.message;
+          else if (j.type === "error" && j.error && j.error.message) msg = j.error.message;
+        } catch (e) {}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          let line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") break;
+          try {
+            const obj = JSON.parse(data);
+            let delta = null;
+            if (prov.kind === "anthropic") {
+              if (obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") delta = obj.delta.text;
+            } else {
+              delta = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
+            }
+            if (delta) full += delta;
+          } catch (e) {}
+        }
+        typing.remove();
+        appendStreaming(bubble, full);
+      }
     }
     conversation.push({ role: "assistant", content: full });
   } catch (e) {
