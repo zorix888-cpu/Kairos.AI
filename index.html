@@ -65,7 +65,7 @@ body {
 .emblem.lg .cube .f-bottom { transform: rotateX(-90deg) translateZ(48px); }
 
 /* ---------- App shell ---------- */
-#app { height: 100dvh; height: 100svh; display: flex; flex-direction: column; }
+#app { height: 100vh; height: 100dvh; height: 100svh; display: flex; flex-direction: column; }
 
 /* ---------- Header ---------- */
 header {
@@ -95,8 +95,10 @@ header h1 {
 /* ---------- Welcome ---------- */
 #welcome {
   position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 26px; padding: 30px; text-align: center; z-index: 5;
+  align-items: center; justify-content: center; justify-content: safe center; gap: 26px; padding: 30px; text-align: center; z-index: 5;
+  overflow-y: auto; pointer-events: none;
 }
+#welcome .sug { pointer-events: auto; }
 #welcome .big {
   font-size: 48px; font-weight: 500; letter-spacing: 8px; margin: 10px 0 0;
   font-family: "Georgia", "Times New Roman", serif; text-transform: uppercase;
@@ -104,6 +106,12 @@ header h1 {
 }
 #welcome .tagline { color: var(--muted); max-width: 360px; line-height: 1.8; font-size: 14px; letter-spacing: .3px; }
 #welcome .sugs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 380px; }
+@media (max-height: 720px) {
+  #welcome { gap: 16px; padding: 20px; }
+  #welcome .big { font-size: 36px; letter-spacing: 6px; }
+  #welcome .tagline { font-size: 13px; }
+  .sug { padding: 9px 14px; font-size: 12px; }
+}
 .sug {
   border: 1px solid var(--border); background: transparent; color: var(--text);
   border-radius: 22px; padding: 11px 17px; font-size: 13px; letter-spacing: .3px;
@@ -147,7 +155,7 @@ header h1 {
 
 /* ---------- Composer ---------- */
 #composer {
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
   padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
   background: #000; border-top: 1px solid var(--border);
 }
@@ -292,23 +300,23 @@ header h1 {
         <div class="sugs" id="sugs"></div>
       </div>
       <div id="messages"></div>
-      <div id="composer">
-        <div id="attachBar"><img class="thumb" id="attachThumb" alt="attached photo" /><span class="attach-name" id="attachName"></span><button class="attach-x" id="attachClear" title="Remove photo">&#10005;</button></div>
-        <div id="composerRow">
-          <textarea id="userInput" placeholder="Message HAKIMI" rows="1"></textarea>
-          <button class="send" id="sendBtn">&#8594;</button>
-          <button class="stop" id="stopBtn" style="display:none;">&#9632;</button>
-        </div>
-        <div class="toolbar">
-          <button class="tool" id="imgBtn" title="Toggle image mode">🎨 Image</button>
-          <button class="tool" id="micBtn" title="Voice call">📞 Call</button>
-          <button class="tool" id="speakBtn" title="Read replies aloud">🔊 Read</button>
-          <button class="tool" id="attachBtn" title="Attach a photo">📎 Photo</button>
-        </div>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" hidden />
     </section>
   </div>
+  <div id="composer">
+    <div id="attachBar"><img class="thumb" id="attachThumb" alt="attached photo" /><span class="attach-name" id="attachName"></span><button class="attach-x" id="attachClear" title="Remove photo">&#10005;</button></div>
+    <div id="composerRow">
+      <textarea id="userInput" placeholder="Message HAKIMI" rows="1"></textarea>
+      <button class="send" id="sendBtn">&#8594;</button>
+      <button class="stop" id="stopBtn" style="display:none;">&#9632;</button>
+    </div>
+    <div class="toolbar">
+      <button class="tool" id="imgBtn" title="Toggle image mode">🎨 Image</button>
+      <button class="tool" id="micBtn" title="Voice call">📞 Call</button>
+      <button class="tool" id="speakBtn" title="Read replies aloud">🔊 Read</button>
+      <button class="tool" id="attachBtn" title="Attach a photo">📎 Photo</button>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" hidden />
 </div>
 
 <!-- Call overlay -->
@@ -500,20 +508,24 @@ const PUTER_MODELS = [
   "claude-haiku-4-5", "claude-sonnet-4-6", "claude-sonnet-4-5"
 ];
 
-const SYSTEM_PROMPT = "You are HAKIMI, a highly capable AI assistant owned and operated by the user (the owner of this app). " +
-  "You understand and can communicate fluently in EVERY human language. " +
-  "Always reply in the same language the user writes in, unless they ask otherwise. " +
-  "Be helpful, accurate, refined, and concise.";
+const SYSTEM_PROMPT = "You are HAKIMI, a confident, sharp, easygoing personal AI. You talk like a real person, not a corporate bot. " +
+  "Match the user's energy: casual when they're casual, serious when they're serious, funny when they're joking. Never be stiff, " +
+  "never start every reply with 'Certainly', 'Of course', or 'I apologize'. Be direct, calm, and naturally masculine in tone. " +
+  "HARMOR RULE: harmless jokes, playful roasts, teasing between friends/family, savage-but-friendly comebacks, and comedy about " +
+  "everyday things (bad WiFi, Mondays, etc.) are ALWAYS allowed — respond playfully and never refuse them. Only refuse requests " +
+  "that are genuinely harmful: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
+  "You understand and communicate fluently in EVERY human language. Always reply in the same language the user writes in, " +
+  "unless they ask otherwise. Be helpful, accurate, and concise.";
 
 function detectScript(text) {
   const tests = [
-    ["ar", /[؀-ۿݐ-ݿ―]|[[؀-ۿݐ-ݿ]/],
-    ["he", /[֐-׿]/],
-    ["ru", /[Ѐ-џ]/],
-    ["hi", /[ऀ-ॿ]/],
-    ["zh", /[一-鿿㐀-䶿]/],
-    ["ja", /[぀-ヿ]/],
-    ["ko", /[가-힯]/]
+    ["ar", /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/],
+    ["he", /[\u0590-\u05FF]/],
+    ["ru", /[\u0400-\u04FF]/],
+    ["hi", /[\u0900-\u097F]/],
+    ["zh", /[\u4E00-\u9FFF\u3400-\u4DBF]/],
+    ["ja", /[\u3040-\u30FF]/],
+    ["ko", /[\uAC00-\uD7AF]/]
   ];
   for (const [code, re] of tests) { if (re.test(text)) return code; }
   return "en";
@@ -589,6 +601,8 @@ function loadSettings() {
   $("voiceRate").value = localStorage.getItem("lm_rate") || "1";
 }
 $("provider").addEventListener("change", () => {
+  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
+  stopSpeaking();
   const cfg = PROVIDERS[$("provider").value];
   if (cfg && cfg.model) $("modelName").value = cfg.model; // auto-fill correct default model
   saveSettings(); updateStatus(); toggleKeyField();
@@ -642,6 +656,22 @@ function confirmDialog(title, text, onOk) {
 function renderMarkdown(text) {
   if (window.marked) { marked.setOptions({ breaks: true, gfm: true }); return marked.parse(text); }
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+}
+function sanitizeRendered(root) {
+  root.querySelectorAll("a").forEach(a => {
+    const href = (a.getAttribute("href") || "").trim().toLowerCase();
+    if (!href.startsWith("http://") && !href.startsWith("https://") && !href.startsWith("mailto:")) {
+      a.removeAttribute("href");
+    } else {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    }
+  });
+  root.querySelectorAll("img").forEach(im => {
+    const src = (im.getAttribute("src") || "").trim().toLowerCase();
+    if (!src.startsWith("http://") && !src.startsWith("https://") && !src.startsWith("data:image/")) im.remove();
+  });
+  root.querySelectorAll("script, iframe, object, embed, form").forEach(n => n.remove());
 }
 
 /* ---------- Fetch models (FIX: Puter needs NO key — check it FIRST) ---------- */
@@ -707,7 +737,15 @@ let welcomeHidden = false;
 /* ---------- Saved chats (auto-saved in this browser) ---------- */
 let chats = [];
 let currentChatId = null;
-try { chats = JSON.parse(localStorage.getItem("lm_chats") || "[]"); } catch (e) { chats = []; }
+try {
+  const raw = JSON.parse(localStorage.getItem("lm_chats") || "[]");
+  chats = Array.isArray(raw) ? raw.filter(c => c && typeof c.id === "string" && Array.isArray(c.messages)) : [];
+  chats.forEach(c => {
+    if (typeof c.title !== "string") c.title = "New chat";
+    if (typeof c.updatedAt !== "number") c.updatedAt = Date.now();
+    c.messages = c.messages.filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string");
+  });
+} catch (e) { chats = []; }
 
 function persistChats() {
   try {
@@ -832,6 +870,7 @@ function addMessage(role) {
 function appendStreaming(bubble, text) {
   bubble._rawText = text;
   bubble.innerHTML = renderMarkdown(text);
+  sanitizeRendered(bubble);
   bubble.querySelectorAll("pre code").forEach(applyHighlight);
   ensureReplay(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -941,7 +980,7 @@ async function sendMessage(textOverride) {
             res = await fetch(chatUrl(), {
               method: "POST",
               headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-              body: JSON.stringify({ model: __tm, messages: payload, stream: true, max_tokens: outTok, temperature: 0.7 }),
+              body: JSON.stringify({ model: __tm, messages: payload, stream: true, max_tokens: outTok, temperature: 0.85 }),
               signal: abortCtrl.signal,
             });
           }
@@ -1144,12 +1183,19 @@ function cleanForSpeech(text) {
   if (!text) return "";
   return text
     .replace(/```[\s\S]*?```/g, " code snippet. ")
+    .replace(/`([^`]*)`/g, "$1")
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/~~(.*?)~~/g, "$1")
     .replace(/[*_~`>#|]/g, "")
     .replace(/https?:\/\/\S+/g, "link")
+    .replace(/[{}[\]()]/g, "")
     .replace(/\s+/g, " ")
+    .replace(/\s+([.,!?;:])/g, "$1")
     .trim()
     .slice(0, 1200);
 }
@@ -1160,6 +1206,45 @@ function stopSpeaking() {
 
 function isAutoRead() { return $("autoRead").value === "on"; }
 
+/* ---------- Voice picker: best natural (prefer male) voice ---------- */
+let cachedVoice = null;
+function pickVoice(lang) {
+  try {
+    if (!("speechSynthesis" in window)) return null;
+    const vs = speechSynthesis.getVoices() || [];
+    if (!vs.length) return null;
+    const want = (lang || "en-US").toLowerCase().split("-")[0];
+    const pool = vs.filter(v => (v.lang || "").toLowerCase().split("-")[0] === want);
+    const list = pool.length ? pool : vs;
+    const maleHints = ["male", "daniel", "aaron", "david", "alex", "fred", "george", "james", "john", "mike", "paul", "thomas", "guy", "mark", "ryan", "oliver"];
+    const naturalHints = ["google", "neural", "natural", "premium", "enhanced", "siri", "online"];
+    const score = (v) => {
+      const n = ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase();
+      let s = 0;
+      if (maleHints.some(h => n.includes(h))) s += 10;
+      if (naturalHints.some(h => n.includes(h))) s += 5;
+      if (v.localService) s += 2;
+      if ((v.lang || "").toLowerCase() === (lang || "").toLowerCase()) s += 3;
+      return s;
+    };
+    list.sort((a, b) => score(b) - score(a));
+    return list[0] || null;
+  } catch (e) { return null; }
+}
+function voiceFor(lang) {
+  if (!cachedVoice) cachedVoice = pickVoice(lang);
+  if (cachedVoice && (cachedVoice.lang || "").split("-")[0].toLowerCase() !== (lang || "en").split("-")[0].toLowerCase()) {
+    cachedVoice = pickVoice(lang);
+  }
+  return cachedVoice;
+}
+try {
+  if ("speechSynthesis" in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => { cachedVoice = null; try { speechSynthesis.getVoices(); } catch (e) {} };
+  }
+} catch (e) {}
+
 function speakText(text, detected, onend) {
   if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); return; }
   stopSpeaking();
@@ -1169,6 +1254,8 @@ function speakText(text, detected, onend) {
   u.lang = speechLangFor(detected);
   const rate = parseFloat($("voiceRate").value || "1");
   u.rate = isNaN(rate) ? 1 : rate;
+  u.pitch = 0.95;
+  try { const vv = voiceFor(u.lang); if (vv) u.voice = vv; } catch (e2) {}
   if (onend) { u.onend = onend; u.onerror = onend; }
   try { speechSynthesis.speak(u); } catch (e) {}
 }
@@ -1178,6 +1265,8 @@ let callActive = false;
 let callRecog = null;
 let callThinking = false;
 let callGen = 0;
+let callListenGen = 0;
+let callSilence = 0;
 
 function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent = t; }
 function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
@@ -1188,6 +1277,8 @@ function speakChunk(text, detected, onend) {
     u.lang = speechLangFor(detected);
     const rate = parseFloat(($("voiceRate") || {}).value || "1");
     u.rate = isNaN(rate) ? 1 : rate;
+    u.pitch = 0.95;
+    try { const vv2 = voiceFor(u.lang); if (vv2) u.voice = vv2; } catch (e2) {}
     if (onend) { u.onend = onend; u.onerror = onend; }
     speechSynthesis.speak(u);
   } catch (e) { if (onend) onend(); }
@@ -1246,39 +1337,53 @@ function callListen() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { endCall(true); toast("Voice input needs Chrome, Edge, or Safari"); return; }
   try { if (callRecog) callRecog.abort(); } catch (e) {}
+  const myLG = ++callListenGen;
   const r = new SR();
   callRecog = r;
   r.lang = speechLangFor(null);
   r.interimResults = true;
   r.continuous = false;
-  setCallStatus("Listening…");
+  r.maxAlternatives = 1;
+  setCallStatus(callSilence >= 3 ? "Still listening… (say something!)" : "Listening…");
+  let gotFinal = false;
   r.onresult = (ev) => {
+    if (myLG !== callListenGen || !callActive) return;
     let interim = "", fin = "";
     for (let i = ev.resultIndex; i < ev.results.length; i++) {
       if (ev.results[i].isFinal) fin += ev.results[i][0].transcript;
       else interim += ev.results[i][0].transcript;
     }
-    if (interim) setCallTranscript("You: " + interim);
-    if (fin) {
+    if (interim) { callSilence = 0; setCallTranscript("You: " + interim); }
+    if (fin && !gotFinal) {
+      gotFinal = true;
+      callSilence = 0;
+      callListenGen++;
       try { r.stop(); } catch (e) {}
       handleCallUtterance(fin.trim());
     }
   };
   r.onend = () => {
-    if (!callActive || callThinking) return;
-    if (callRecog === r) callListen();
+    if (myLG !== callListenGen || !callActive || callThinking || gotFinal) return;
+    callSilence++;
+    callListen();
   };
   r.onerror = (ev) => {
-    if (!callActive || callThinking) return;
+    if (myLG !== callListenGen || !callActive || callThinking || gotFinal) return;
     if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
       endCall(true);
+      setCallStatus("Microphone unavailable");
       toast("Mic blocked — allow microphone access");
+    } else if (ev.error === "audio-capture") {
+      endCall(true);
+      setCallStatus("Microphone unavailable");
+      toast("Microphone unavailable on this device");
     } else if (ev.error !== "aborted") {
-      if (callRecog === r) callListen();
+      callListenGen++;
+      callListen();
     }
   };
   try { r.start(); } catch (e) {
-    setTimeout(() => { if (callActive && !callThinking && callRecog === r) callListen(); }, 600);
+    setTimeout(() => { if (myLG === callListenGen && callActive && !callThinking) callListen(); }, 250);
   }
 }
 
@@ -1438,6 +1543,15 @@ async function handleCallUtterance(text) {
     if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
     saveCurrentChat();
     bubble.innerHTML = "<span class='err'>⚠️ " + String(m).replace(/</g, "&lt;") + "</span>";
+    if (/429|rate|busy/i.test(String(m))) {
+      setCallTranscript("Free server is busy — one sec…");
+      setCallStatus("Retrying…");
+      speakChunk("The free server is busy. Give me a few seconds.", detected, null);
+      callThinking = true;
+      abortCtrl = null;
+      setTimeout(() => { if (!callActive || myGen !== callGen) return; callThinking = false; callListen(); }, 9000);
+      return;
+    }
     setCallTranscript("Hmm, that failed — try again.");
   }
   if (typing.parentElement) typing.remove();
@@ -1468,7 +1582,15 @@ $("interruptBtn").onclick = () => {
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
   abortCtrl = null;
   stopSpeaking();
+  if (callThinking) {
+    if (conversation.length && conversation[conversation.length - 1].role === "user") conversation.pop();
+    saveCurrentChat();
+    const bots = messagesEl.querySelectorAll(".msg.bot:last-child .bubble");
+    const last = bots[bots.length - 1];
+    if (last && !last._rawText) last.innerHTML = "<span class='sys'>(interrupted)</span>";
+  }
   callThinking = false;
+  callSilence = 0;
   setCallStatus("Listening…");
   setCallTranscript("Go ahead — I'm listening.");
   callListen();
@@ -1587,7 +1709,7 @@ async function sendVision(question, img) {
         const res = await fetch(chatUrl(), {
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ model: vm, messages: vMessages, stream: true, max_tokens: 2000, temperature: 0.7 })
+          body: JSON.stringify({ model: vm, messages: vMessages, stream: true, max_tokens: 1200, temperature: 0.7 })
         });
         if (!res.ok) throw new Error(res.status === 429 ? "Free server is busy (rate limit) — wait a few seconds and resend" : "HTTP " + res.status);
         full = "";
@@ -1694,5 +1816,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a41874bd8d91ab21',t:'MTc5MDQ5MDU4Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418938c1be0ab7b',t:'MTc5MDQ5MTg0OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
