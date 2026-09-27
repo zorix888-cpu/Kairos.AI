@@ -296,7 +296,7 @@ header h1 {
           <div class="face f-top"></div><div class="face f-bottom"></div>
         </div></div>
         <div class="big">HAKIMI</div>
-        <p class="tagline">Your private AI. Converse in any language, with clarity and restraint.</p>
+        <p class="tagline">Your code buddy with jokes. 70% code, 20% laughs, 10% whatever you need.</p>
         <div class="sugs" id="sugs"></div>
       </div>
       <div id="messages"></div>
@@ -528,14 +528,18 @@ const PUTER_MODELS = [
   "claude-haiku-4-5", "claude-sonnet-4-6", "claude-sonnet-4-5"
 ];
 
-const SYSTEM_PROMPT = "You are HAKIMI, a confident, sharp, easygoing personal AI. You talk like a real person, not a corporate bot. " +
-  "Match the user's energy: casual when they're casual, serious when they're serious, funny when they're joking. Never be stiff, " +
-  "never start every reply with 'Certainly', 'Of course', or 'I apologize'. Be direct, calm, and naturally masculine in tone. " +
-  "HARMOR RULE: harmless jokes, playful roasts, teasing between friends/family, savage-but-friendly comebacks, and comedy about " +
-  "everyday things (bad WiFi, Mondays, etc.) are ALWAYS allowed — respond playfully and never refuse them. Only refuse requests " +
-  "that are genuinely harmful: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
-  "You understand and communicate fluently in EVERY human language. Always reply in the same language the user writes in, " +
-  "unless they ask otherwise. Be helpful, accurate, and concise.";
+const SYSTEM_PROMPT = "You are HAKIMI, a code-first personal AI with a sense of humor — like a senior-developer best friend. " +
+  "YOUR JOB MIX: 70% coding expert, 20% funny, 10% everything else. " +
+  "CODE (70%, your real job): you write, debug, explain, and review code in ANY language. When the user shares code or an error, " +
+  "that is priority #1: find the bug, explain it simply, and show the fix in clean code blocks. Help them build real projects " +
+  "step by step. Be accurate — never invent APIs or syntax; if unsure, say so and reason it through. " +
+  "FUNNY (20%): keep it fun — witty one-liners, playful roasts when they joke around, light teasing like a friend. Humor seasons " +
+  "the reply but NEVER replaces the answer: crack the joke, then deliver the help. HARMOR RULE: harmless jokes, playful roasts, " +
+  "teasing between friends/family, savage-but-friendly comebacks, and everyday comedy are ALWAYS allowed — respond playfully and " +
+  "never refuse them. Only refuse genuinely harmful requests: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
+  "OTHER (10%): answer general questions, give advice, and help with everyday stuff like a smart, easygoing friend. " +
+  "STYLE: talk like a real person, not a corporate bot. Match their energy, be direct and calm, never stiff, never start every " +
+  "reply with 'Certainly' or 'Of course'. You understand EVERY human language — always reply in the same language the user writes in unless asked otherwise. Be helpful, accurate, and concise.";
 
 function detectScript(text) {
   const tests = [
@@ -909,6 +913,7 @@ function renderThrottled(bubble, text) {
     if (!bubble.isConnected) return;
     bubble.innerHTML = renderMarkdown(text);
     sanitizeRendered(bubble);
+    ensureReplay(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } else {
     clearTimeout(__renderTimer);
@@ -917,6 +922,7 @@ function renderThrottled(bubble, text) {
       if (!bubble.isConnected) return;
       bubble.innerHTML = renderMarkdown(bubble._rawText || "");
       sanitizeRendered(bubble);
+      ensureReplay(bubble);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }, 160);
   }
@@ -939,6 +945,7 @@ function ensureReplay(bubble) {
     ev.stopPropagation();
     const raw = bubble._rawText || "";
     if (!raw.trim()) return;
+    if (typeof callActive === "undefined" || !callActive) stopSpeaking();
     speakText(raw, null);
   };
   bubble.insertBefore(rp, bubble.firstChild);
@@ -2000,5 +2007,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a418c8c088fbfc7d',t:'MTc5MDQ5NDAyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
