@@ -533,13 +533,13 @@ $("proxyBase").addEventListener("input", () => { saveSettings(); updateStatus();
 $("autoTest").addEventListener("change", saveSettings);
 
 function proxySet() { try { return (($("proxyBase").value || "").trim().length > 0); } catch (e) { return false; } }
-function effBase(c) { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); if (px && c && c.kind === "openai") return px; return (c && c.base) || ""; }
+function effBase(c) { return (c && c.base) || ""; }
 function apiBase() { const p = $("provider").value; return effBase(PROVIDERS[p] || {}); }
 function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.chatPath || "/chat/completions"); }
 function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.modelsPath || "/models"); }
 function updateStatus() {
   const st = $("status");
-  if (!$("apiKey").value && !proxySet()) { st.textContent = "Enter key"; st.classList.remove("ok"); }
+  if (!$("apiKey").value ) { st.textContent = "Enter key"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
 
@@ -660,7 +660,7 @@ function fillModelList(ids) {
 /* ---------- Fetch models ---------- */
 async function fetchModels() {
   const btn = $("fetchModelsBtn"); btn.disabled = true; btn.textContent = "…";
-  if (!$("apiKey").value && !proxySet()) { toast("Enter your Aerolink API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
+  if (!$("apiKey").value ) { toast("Enter your Aerolink API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
   try {
     const mCtrl = new AbortController();
     const mTo = setTimeout(() => { try { mCtrl.abort(); } catch (e) {} }, 15000);
@@ -1084,7 +1084,7 @@ async function sendMessage(textOverride, opts) {
   const text = (textOverride != null ? textOverride : input.value).trim();
   if (!text) return;
   const _pcfg = PROVIDERS[$("provider").value] || {};
-  if (!$("apiKey").value && !proxySet()) { toast("Open settings and paste your Aerolink key"); openSheet(); return; }
+  if (!$("apiKey").value ) { toast("Open settings and paste your Aerolink key"); openSheet(); return; }
   if (!$("modelName").value) {
     const _def = PROVIDERS[$("provider").value] || {};
     if (_def.model) { $("modelName").value = _def.model; saveSettings(); }
@@ -1126,6 +1126,7 @@ async function sendMessage(textOverride, opts) {
 
   let full = "";
   try {
+    if (!/^https?:\/\//.test(chatUrl())) throw new Error("Setup error — bad server address. Open settings and tap Get.");
       const __freeChat = false;
       const __models = [model].concat((prov.fallbacks || []).filter(f => f && f !== model));
       let res = null;
@@ -1149,7 +1150,12 @@ async function sendMessage(textOverride, opts) {
               const j = JSON.parse(errTxt);
               if (j.error && j.error.message) msg = j.error.message;
               else if (j.type === "error" && j.error && j.error.message) msg = j.error.message;
-            } catch (e) {}
+            } catch (e) {
+              try {
+                const __t = (errTxt || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+                if (__t) msg += " — " + __t;
+              } catch (_) {}
+            }
             const E = new Error(msg);
             E.__status = res.status;
             throw E;
@@ -1335,6 +1341,7 @@ try {
 
 /* ---------- Boot ---------- */
 loadSettings();
+$("proxyBase").value = ""; try { localStorage.removeItem("lm_proxy"); } catch (e) {}
 if (!localStorage.getItem("lm_v3aero")) {
   localStorage.setItem("lm_v3aero", "1");
   $("provider").value = "aerolink";
@@ -1348,5 +1355,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value) fetchModels();
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a430795b694c97b9',t:'MTc5MDc0MjQzNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
