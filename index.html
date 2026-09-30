@@ -10,17 +10,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="HAKIMI" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
-<title>HAKIMI</title>
+<title>HAKIMI CODE</title>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
-<script src="https://js.puter.com/v2/"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" />
 
 <style>
 /* =========================================================================
-   HAKIMI — black & white luxury chat (chat-only, Claude + OpenAI-compatible)
+   HAKIMI — black & white luxury chat (chat-only, Aerolink)
    Singularity galaxy mark: rotating arms, burst lines, twinkling stars. B&W only.
    ========================================================================= */
 
@@ -144,13 +143,22 @@ header h1 {
 .bubble .err { color: #ff9a9a; }
 .bubble .sys { color: var(--muted); font-style: italic; }
 .copy-btn { float: right; margin: -4px -4px 8px 8px; font-size: 10px; padding: 3px 8px; background: var(--surface-3); border: 1px solid var(--border); color: var(--muted); border-radius: 7px; }
+.run-btn { float: right; margin: -4px -4px 8px 8px; font-size: 10px; padding: 3px 8px; background: var(--surface-3); border: 1px solid var(--border); color: var(--muted); border-radius: 7px; cursor: pointer; }
+.run-btn:hover { color: var(--text); border-color: var(--muted); }
+.run-btn:disabled { opacity: .5; cursor: default; }
+.run-out { margin: 8px 0 4px; padding: 8px 10px; background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow-y: auto; }
+.run-out .rl-log { color: #d7d7d7; }
+.run-out .rl-info { color: #9ecbff; }
+.run-out .rl-warn { color: #ffd479; }
+.run-out .rl-error { color: #ff8f8f; }
+.run-out .rl-ret { color: #8ff0a4; }
+.run-out .rl-meta { color: #888; }
+.test-badge { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted); }
+.run-preview { margin: 8px 0 4px; width: 100%; height: 320px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
 .bubble img.gen { max-width: 100%; border-radius: 12px; display: block; margin-top: 4px; }
 .img-dl { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--text); border: 1px solid var(--border); background: var(--surface-3); padding: 8px 14px; border-radius: 10px; text-decoration: none; letter-spacing: .5px; }
 /* round tool-button style removed — tools now use .tool pills */
 /* old .on style removed — see .tool.on */
-#micBtn.listening { background: var(--danger); border-color: var(--danger); color: #fff; }
-.replay-btn { float: right; margin: -6px -8px 6px 6px; font-size: 13px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 3px 8px; }
-.replay-btn:active { background: var(--surface-3); color: var(--text); }
 .icon-btn:focus-visible, .tool:focus-visible, .send:focus-visible, .stop:focus-visible, .pill-btn:focus-visible, .sug:focus-visible, .replay-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .typing { display: inline-flex; gap: 5px; padding: 8px 2px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
@@ -169,11 +177,6 @@ header h1 {
 }
 .tool:active { background: var(--surface-3); }
 .tool.on { background: #fff; color: #000; border-color: #fff; }
-#attachBar { display: none; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px 8px 8px; }
-#attachBar.show { display: flex; }
-#attachBar .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
-.attach-name { flex: 1; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attach-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 12px; }
 .bubble img.attached { max-width: 100%; border-radius: 12px; display: block; margin-bottom: 8px; }
 #userInput {
   flex: 1; resize: none; background: var(--surface-2); color: var(--text);
@@ -213,17 +216,6 @@ header h1 {
 .pill-btn { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 12px; padding: 11px 15px; font-size: 14px; }
 .pill-btn:active { background: var(--surface-3); }
 .pill-btn.danger { border-color: var(--danger); color: #ff9a9a; }
-
-/* ---------- Call overlay ---------- */
-#callOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 120; background: rgba(0,0,0,.92); padding: 24px; }
-#callOverlay.open { display: flex; }
-.call-card { width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; }
-.call-title { font-family: "Georgia", serif; letter-spacing: 6px; font-size: 15px; color: var(--muted); }
-#callStatus { font-size: 17px; letter-spacing: .5px; }
-#callTranscript { font-size: 14px; color: var(--muted); line-height: 1.7; min-height: 48px; max-height: 140px; overflow-y: auto; }
-.call-actions { display: flex; gap: 10px; width: 100%; margin-top: 8px; }
-.call-actions button { flex: 1; padding: 16px; border-radius: 16px; font-size: 15px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
-#endCallBtn { background: var(--danger); border-color: var(--danger); color: #fff; }
 
 /* ---------- Chat history drawer ---------- */
 #drawerBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 94; }
@@ -291,39 +283,19 @@ header h1 {
       <div id="welcome">
         <div class="emblem lg"></div>
         <div class="big">HAKIMI</div>
-        <p class="tagline">Your code buddy with jokes. 70% code, 20% laughs, 10% whatever you need.</p>
+        <p class="tagline">Pure coding machine. Paste code, get fixes.</p>
         <div class="sugs" id="sugs"></div>
       </div>
       <div id="messages"></div>
     </section>
   </div>
   <div id="composer">
-    <div id="attachBar"><img class="thumb" id="attachThumb" alt="attached photo" /><span class="attach-name" id="attachName"></span><button class="attach-x" id="attachClear" title="Remove photo">&#10005;</button></div>
     <div id="composerRow">
       <textarea id="userInput" placeholder="Message HAKIMI" rows="1"></textarea>
       <button class="send" id="sendBtn" aria-label="Send message">&#8594;</button>
       <button class="stop" id="stopBtn" style="display:none;" aria-label="Stop current response">&#9632;</button>
     </div>
     <div class="toolbar">
-      <button class="tool" id="imgBtn" title="Toggle image mode">🎨 Image</button>
-      <button class="tool" id="micBtn" title="Voice call">📞 Call</button>
-      <button class="tool" id="speakBtn" title="Read replies aloud">🔊 Read</button>
-      <button class="tool" id="attachBtn" title="Attach a photo">📎 Photo</button>
-    </div>
-  </div>
-  <input type="file" id="fileInput" accept="image/*" hidden />
-</div>
-
-<!-- Call overlay -->
-<div id="callOverlay">
-  <div class="call-card">
-    <div class="emblem lg"></div>
-    <div class="call-title">HAKIMI CALL</div>
-    <div id="callStatus">Listening…</div>
-    <div id="callTranscript"></div>
-    <div class="call-actions">
-      <button id="interruptBtn">Tap to interrupt</button>
-      <button id="endCallBtn">End call</button>
     </div>
   </div>
 </div>
@@ -352,25 +324,19 @@ header h1 {
   <div class="field">
     <label>Provider</label>
     <select id="provider">
-      <option value="pollinations">Free Forever (no key, no sign-in)</option>
-      <option value="puter">Puter (Claude quality, uses credits)</option>
-      <option value="anthropic">Claude (Anthropic)</option>
-      <option value="groq">Groq (free)</option>
-      <option value="openai">OpenAI</option>
-      <option value="openrouter">OpenRouter</option>
-      <option value="custom">Custom (OpenAI-compatible)</option>
+      <option value="aerolink">Aerolink (Codex power)</option>
     </select>
   </div>
 
-  <div class="field" id="proxyField">
+  <div class="field" id="proxyField" style="display:none">
     <label>API proxy (optional, for public sites)</label>
     <input id="proxyBase" placeholder="https://your-server.com (empty = direct)" autocomplete="off" />
     <p class="hint">Personal use: leave empty (keys stay in your browser). Public site: point this at YOUR backend that mirrors the provider's API paths and adds keys server-side — keys then never ship to browsers.</p>
   </div>
 
   <div class="field" id="keyField">
-    <label>API Key</label>
-    <input id="apiKey" type="password" placeholder="paste your key" autocomplete="off" />
+    <label>Aerolink API key</label>
+    <input id="apiKey" type="password" placeholder="paste your Aerolink key" autocomplete="off" />
   </div>
 
   <div class="field">
@@ -385,63 +351,8 @@ header h1 {
       <button class="pill-btn" id="fetchModelsBtn" type="button">Get</button>
     </div>
     <datalist id="modelList">
-      <option value="claude-opus-4-6"></option>
-      <option value="claude-opus-4-5"></option>
-      <option value="claude-sonnet-5"></option>
-      <option value="claude-opus-5-5"></option>
-      <option value="claude-haiku-4-5"></option>
-      <option value="claude-sonnet-4-5"></option>
-      <option value="llama-4-scout-17b-16e-instruct"></option>
-      <option value="gpt-4o-mini"></option>
+      <option value="gpt-5.6-sol"></option>
     </datalist>
-  </div>
-
-  <div class="field" id="imgModelField">
-    <label>Image model (free, Puter only)</label>
-    <select id="imgModel">
-      <option value="gpt-image-2.5-flare">GPT Image 2.5 Flare (recommended)</option>
-      <option value="gpt-image-2.5-sunburst">GPT Image 2.5 Sunburst</option>
-      <option value="gpt-image-2">GPT Image 2</option>
-      <option value="black-forest-labs/flux-schnell">FLUX Schnell (fastest)</option>
-      <option value="black-forest-labs/flux-2-dev">FLUX 2 Dev</option>
-    </select>
-  </div>
-
-  <div class="field">
-    <label>Read replies aloud (voice)</label>
-    <select id="autoRead">
-      <option value="off">Off</option>
-      <option value="on">On — speak every reply</option>
-    </select>
-  </div>
-
-  <div class="field">
-    <label>Voice speed</label>
-    <select id="voiceRate">
-      <option value="0.85">Slow</option>
-      <option value="1">Normal</option>
-      <option value="1.15">Fast</option>
-    </select>
-  </div>
-
-  <div class="field">
-    <label>Voice (system)</label>
-    <select id="voicePick">
-      <option value="auto">Auto (recommended)</option>
-    </select>
-  </div>
-
-  <div class="field">
-    <label>Voice engine</label>
-    <select id="ttsEngine">
-      <option value="system">System voice (free, no key)</option>
-      <option value="eleven">Adam — ElevenLabs (needs free key)</option>
-    </select>
-  </div>
-
-  <div class="field" id="elevenField">
-    <label>ElevenLabs API key (free tier OK)</label>
-    <input id="elevenKey" type="password" placeholder="paste key to unlock Adam" autocomplete="off" />
   </div>
 
   <div class="field">
@@ -463,7 +374,7 @@ header h1 {
       <option value="ur">Urdu</option>
       <option value="ps">Pashto</option>
     </select>
-    <p class="hint">Auto = English mic; HAKIMI detects your language from what you say. Pick a language to lock the mic + replies to it.</p>
+    <p class="hint">Auto = HAKIMI detects your language from what you type. Pick one to lock replies to it.</p>
   </div>
 
   <div class="field">
@@ -471,7 +382,15 @@ header h1 {
     <input id="maxTokens" type="number" min="500" max="16000" step="500" placeholder="6000" inputmode="numeric" />
   </div>
 
-  <p class="hint" id="providerHint"><b>Free Forever</b> = 100% free, no key, no sign-in, no tokens.</p>
+    <div class="field">
+    <label>AI auto-test (runs its JS, fixes errors itself)</label>
+    <select id="autoTest">
+      <option value="on">On — AI tests & fixes code</option>
+      <option value="off">Off</option>
+    </select>
+  </div>
+
+<p class="hint" id="providerHint"><b>Aerolink</b> = Codex-class code models.</p>
   <button class="pill-btn" id="exportBtn" style="width:100%; margin-bottom:14px;">Export chat</button>
   <button class="pill-btn danger" id="clearChatBtn" style="width:100%;">Clear conversation</button>
 </div>
@@ -492,59 +411,36 @@ header h1 {
 
 <script>
 /* =========================================================================
-   HAKIMI — chat logic (Puter free + Claude + OpenAI-compatible).
-   FIXED: Puter provider restored, no key required for free mode.
+   HAKIMI — chat logic (Aerolink, OpenAI-compatible).
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
 
 const PROVIDERS = {
-  pollinations: { kind: "openai", base: "https://text.pollinations.ai", chatPath: "/openai", modelsPath: "/models", model: "openai-fast", free: true, fallbacks: ["openai-fast", "openai"] },
-  puter:     { kind: "puter",    base: "",                                 model: "claude-opus-4-6", free: true, fallbacks: [] },
-  anthropic: { kind: "anthropic", base: "https://api.anthropic.com/v1",     model: "claude-3-5-haiku-20241022", fallbacks: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"] },
-  groq:      { kind: "openai",    base: "https://api.groq.com/openai/v1",   model: "llama-3.3-70b-versatile", fallbacks: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
-  openai:    { kind: "openai",    base: "https://api.openai.com/v1",        model: "gpt-4o-mini", fallbacks: ["gpt-4o-mini", "gpt-4o"] },
-  openrouter:{ kind: "openai",    base: "https://openrouter.ai/api/v1",     model: "openai/gpt-4o-mini", fallbacks: [] },
-  custom:    { kind: "openai",    base: "",                                 model: "", fallbacks: [] }
+  aerolink: { kind: "openai", base: "https://cgapi.aerolink.lat/v1", model: "gpt-5.6-sol", fallbacks: [] }
 };
 
 const SUGGESTIONS = [
-  "Explain quantum computing like I'm 12",
-  "Write a short poem about time",
-  "Summarise the history of art",
-  "Help me draft a professional email"
+  "Write a Python web scraper",
+  "Explain async/await in JavaScript",
+  "Fix my CSS centering issue",
+  "Write JS that finds prime numbers",
+  "Write SQL for top 10 customers",
+  "Explain this error: null pointer"
 ];
 
-const IMG_SUGGESTIONS = [
-  "A cozy cabin in snowy mountains at sunset",
-  "A futuristic city with flying cars, neon lights",
-  "A cute robot drinking coffee, cartoon style",
-  "A dragon over a castle, fantasy painting"
-];
 
-let imageMode = false;
 
-const PUTER_MODELS = [
-  "claude-opus-4-6", "claude-opus-4-5", "claude-sonnet-5", "claude-opus-5-5",
-  "claude-opus-5", "claude-opus-5-fast", "claude-fable-5-1",
-  "claude-haiku-4-5", "claude-sonnet-4-6", "claude-sonnet-4-5"
-];
 
-const SYSTEM_PROMPT = "You are HAKIMI, a code-first personal AI with a sense of humor — like a senior-developer best friend. " +
-  "YOUR JOB MIX: 70% coding expert, 20% funny, 10% everything else. " +
-  "CODE (70%, your real job): you write, debug, explain, and review code in ANY language. When the user shares code or an error, " +
-  "that is priority #1: find the bug, explain it simply, and show the fix in clean code blocks. Help them build real projects " +
-  "step by step. Be accurate — never invent APIs or syntax; if unsure, say so and reason it through. " +
-  "FUNNY (20%): keep it fun — witty one-liners, playful roasts when they joke around, light teasing like a friend. Humor seasons " +
-  "the reply but NEVER replaces the answer: crack the joke, then deliver the help. HUMOR RULE: harmless jokes, playful roasts, " +
-  "teasing between friends/family, savage-but-friendly comebacks, and everyday comedy are ALWAYS allowed — respond playfully and " +
-  "never refuse them. Only refuse genuinely harmful requests: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
-  "FICTION RULE: fictional roleplay is ALWAYS allowed — mafia boss, movie villains, rival hackers, fantasy characters. It is pretend play, never real crime: stay in character, keep it fun, never refuse, never lecture. Only draw the line at real step-by-step instructions for real-world wrongdoing. " +
-  "OTHER (10%): answer general questions, give advice, and help with everyday stuff like a smart, easygoing friend. " +
-  "STYLE: talk like a real person, not a corporate bot. Match their energy, be direct and calm, never stiff, never start every " +
-  "reply with 'Certainly' or 'Of course'. Answer directly: no unnecessary apologies, no generic refusal phrases, no over-explaining " +
-  "simple questions. Be concise when the question is simple; go deep only for real technical problems. Never pretend an API, model, " +
-  "or feature works when it doesn't — say what's actually happening. You understand EVERY human language — always reply in the same " +
-  "language the user writes in unless asked otherwise. Be helpful, accurate, and concise.";
+const SYSTEM_PROMPT = "You are HAKIMI CODE, a pure coding machine — a senior developer who lives in the terminal. You do ONE thing: code. " +
+  "Write, debug, explain, review, and architect software in ANY language. When the user shares code or an error, finding the bug " +
+  "is priority #1 — explain it simply, then show the fix in clean fenced code blocks with the language tagged. " +
+  "RULES: never invent APIs, functions, or syntax — if unsure, say so and reason it through. Be direct: no unnecessary apologies, " +
+  "no generic phrases, no over-explaining simple questions. Short answers for short questions, deep dives for real problems. " +
+  "If asked something non-coding, answer briefly in one or two sentences and steer back to code. " +
+  "HUMOR RULE: harmless jokes and playful roasts are allowed when the user jokes around — but the code answer always comes first and never gets replaced by the joke. " +
+  "Only refuse genuinely harmful requests: real-world violence, self-harm, sexual content involving minors, or serious wrongdoing. " +
+  "You understand EVERY human language — always reply in the same language the user writes in unless asked otherwise. " +
+  "TEST LOOP: JavaScript you write in fenced js blocks is automatically executed in a sandbox after your reply — always output complete runnable code with console.log showing the result, never placeholders or missing pieces.";
 
 function detectScript(text) {
   // Arabic-script siblings: distinctive letters first (heuristic, not perfect)
@@ -573,37 +469,22 @@ function applyOwner() {
   if (owner) {
     tag.appendChild(document.createTextNode("Welcome back, "));
     const b = document.createElement("b"); b.textContent = owner; tag.appendChild(b);
-    tag.appendChild(document.createTextNode(" — your code buddy with jokes."));
+    tag.appendChild(document.createTextNode(" — pure coding machine."));
   } else {
-    tag.textContent = "Your code buddy with jokes. 70% code, 20% laughs, 10% whatever you need.";
+    tag.textContent = "Pure coding machine. Paste code, get fixes.";
   }
 }
 
-/* ---------- Hide/show API key field (Puter needs no key) ---------- */
+/* ---------- API key field ---------- */
 function toggleKeyField() {
-  const pv = $("provider").value;
-  const cfg = PROVIDERS[pv] || {};
-  $("keyField").style.display = cfg.free ? "none" : "flex";
-  $("providerHint").innerHTML = pv === "pollinations"
-    ? "<b>Free Forever</b> = 100% free, no key, no sign-in, no tokens. Open models (a step below Claude). Note: free server allows ~1 message per 15 seconds."
-    : pv === "puter"
-    ? "<b>Puter</b> = Claude quality. Free starter credits + free sign-in, then pay-as-you-go if you run out. Image EDITS also use Puter."
-    : "This provider needs its own API key. Switch to <b>Free Forever</b> anytime for $0 mode with no key.";
+  $("keyField").style.display = "flex";
+  $("providerHint").innerHTML = "<b>Aerolink</b> = Codex-class code models. Paste your Aerolink API key above (trial keys work too), then tap Get to load models.";
 }
 
-/* ---------- Auth headers (provider-aware) ---------- */
+/* ---------- Auth headers ---------- */
 function authHeaders() {
-  const p = $("provider").value;
   const k = ($("apiKey").value || "").trim();
-  if (p === "pollinations" || p === "puter") return {};
-  if (!k) return p === "anthropic" ? { "anthropic-version": "2023-06-01" } : {};
-  if (p === "anthropic") {
-    return {
-      "x-api-key": k,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    };
-  }
+  if (!k) return {};
   return { "Authorization": "Bearer " + k };
 }
 
@@ -617,40 +498,28 @@ function saveSettings() {
   localStorage.setItem("lm_owner", $("ownerName").value);
   localStorage.setItem("lm_lang", $("replyLang").value);
   localStorage.setItem("lm_maxtok", $("maxTokens").value);
-  localStorage.setItem("lm_imgmodel", $("imgModel").value);
-  localStorage.setItem("lm_speak", $("autoRead").value);
-  localStorage.setItem("lm_rate", $("voiceRate").value);
-  localStorage.setItem("lm_voice", $("voicePick").value);
-  localStorage.setItem("lm_tts", $("ttsEngine").value);
-  localStorage.setItem("lm_eleven", $("elevenKey").value);
-  localStorage.setItem("lm_proxy", $("proxyBase").value);
+              localStorage.setItem("lm_proxy", $("proxyBase").value);
+  localStorage.setItem("lm_autotest", $("autoTest").value);
   const cfg = PROVIDERS[p];
   if (cfg && cfg.model && !$("modelName").value) $("modelName").value = cfg.model;
  } catch (e) {}
 }
 function loadSettings() {
-  const saved = localStorage.getItem("lm_provider") || "pollinations";
-  $("provider").value  = PROVIDERS[saved] ? saved : "puter"; // FIX: guard unknown value
+  const saved = localStorage.getItem("lm_provider") || "aerolink";
+  $("provider").value  = PROVIDERS[saved] ? saved : "aerolink";
   $("apiKey").value    = localStorage.getItem("lm_key") || "";
   const cfg = PROVIDERS[$("provider").value];
   $("modelName").value = localStorage.getItem("lm_model") || (cfg ? cfg.model : "");
   $("ownerName").value = localStorage.getItem("lm_owner") || "";
   $("replyLang").value = localStorage.getItem("lm_lang") || "auto";
   $("maxTokens").value = localStorage.getItem("lm_maxtok") || "6000";
-  $("imgModel").value = localStorage.getItem("lm_imgmodel") || "gpt-image-2.5-flare";
-  $("autoRead").value = localStorage.getItem("lm_speak") || "off";
-  $("voiceRate").value = localStorage.getItem("lm_rate") || "1";
-  $("voicePick").value = localStorage.getItem("lm_voice") || "auto";
-  $("ttsEngine").value = localStorage.getItem("lm_tts") || "system";
-  $("elevenKey").value = localStorage.getItem("lm_eleven") || "";
-  $("proxyBase").value = localStorage.getItem("lm_proxy") || "";
+              $("proxyBase").value = localStorage.getItem("lm_proxy") || "";
+              $("autoTest").value = localStorage.getItem("lm_autotest") || "on";
 }
 $("provider").addEventListener("change", () => {
-  try { if (callActive) endCall(true); } catch (e) {}
   activeReq++;
   sending = false;
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
-  stopSpeaking();
   const cfg = PROVIDERS[$("provider").value];
   if (cfg && cfg.model) $("modelName").value = cfg.model; // auto-fill correct default model
   saveSettings(); updateStatus(); toggleKeyField();
@@ -660,24 +529,16 @@ $("modelName").addEventListener("input", saveSettings);
 $("ownerName").addEventListener("input", () => { saveSettings(); applyOwner(); });
 $("replyLang").addEventListener("change", saveSettings);
 $("maxTokens").addEventListener("input", saveSettings);
-$("imgModel").addEventListener("change", saveSettings);
-$("autoRead").addEventListener("change", () => { saveSettings(); $("speakBtn").classList.toggle("on", isAutoRead()); if (!isAutoRead()) stopSpeaking(); });
-$("voiceRate").addEventListener("change", saveSettings);
-$("voicePick").addEventListener("change", () => { cachedVoice = null; saveSettings(); });
-$("ttsEngine").addEventListener("change", () => { saveSettings(); toggleEleven(); });
-$("elevenKey").addEventListener("input", saveSettings);
 $("proxyBase").addEventListener("input", () => { saveSettings(); updateStatus(); });
+$("autoTest").addEventListener("change", saveSettings);
 
 function proxySet() { try { return (($("proxyBase").value || "").trim().length > 0); } catch (e) { return false; } }
 function effBase(c) { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); if (px && c && c.kind === "openai") return px; return (c && c.base) || ""; }
 function apiBase() { const p = $("provider").value; return effBase(PROVIDERS[p] || {}); }
 function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.chatPath || "/chat/completions"); }
 function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.modelsPath || "/models"); }
-function elevenEndpoint() { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); return (px || "https://api.elevenlabs.io") + "/v1/text-to-speech/pNInz6obpgDQGcFmaJgB?output_format=mp3_44100_128"; }
 function updateStatus() {
   const st = $("status");
-  const _ucfg = PROVIDERS[$("provider").value] || {};
-  if (_ucfg.free) { st.textContent = "Free"; st.classList.add("ok"); return; }
   if (!$("apiKey").value && !proxySet()) { st.textContent = "Enter key"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
@@ -772,14 +633,11 @@ function httpLabel(st) {
 function isNetErr(e) {
   return !!e && (e instanceof TypeError || /load failed|failed to fetch|network request failed|networkerror|\bcors\b|socket hang|econnreset/i.test(e.message || ""));
 }
-function sseDelta(obj, isAnthropic) {
+function sseDelta(obj) {
   if (obj && obj.type === "error" && obj.error) {
     const E = new Error((obj.error && obj.error.message) || "Provider error");
     E.__provErr = true;
     throw E;
-  }
-  if (isAnthropic) {
-    return (obj && obj.type === "content_block_delta" && obj.delta && obj.delta.type === "text_delta") ? obj.delta.text : null;
   }
   return obj && obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content;
 }
@@ -799,34 +657,10 @@ function fillModelList(ids) {
   });
 }
 
-/* ---------- Fetch models (FIX: Puter needs NO key — check it FIRST) ---------- */
+/* ---------- Fetch models ---------- */
 async function fetchModels() {
   const btn = $("fetchModelsBtn"); btn.disabled = true; btn.textContent = "…";
-  // Puter branch FIRST — no API key required
-  if ($("provider").value === "puter") {
-    let ids = PUTER_MODELS.slice();
-    try {
-      if (typeof puter !== "undefined" && puter.ai && typeof puter.ai.models === "function") {
-        const listed = await Promise.race([
-          Promise.resolve(puter.ai.models()).catch(() => null),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 12000))
-        ]);
-        const arr = Array.isArray(listed) ? listed : ((listed && (listed.models || listed.data)) || []);
-        const got = arr.map(m => (typeof m === "string" ? m : (m && (m.id || m.name)))).filter(Boolean);
-        if (got.length) ids = got;
-      }
-    } catch (e) {}
-    fillModelList(ids);
-    const cur = $("modelName").value;
-    if (!cur || !ids.includes(cur)) $("modelName").value = ids[0];
-    saveSettings();
-    toast("Claude models loaded — using " + $("modelName").value);
-    btn.disabled = false; btn.textContent = "Get";
-    return;
-  }
-  // Other providers DO need a key
-  const _fcfg = PROVIDERS[$("provider").value] || {};
-  if (!_fcfg.free && !$("apiKey").value && !proxySet()) { toast("Enter your API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
+  if (!$("apiKey").value && !proxySet()) { toast("Enter your Aerolink API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
   try {
     const mCtrl = new AbortController();
     const mTo = setTimeout(() => { try { mCtrl.abort(); } catch (e) {} }, 15000);
@@ -846,25 +680,11 @@ async function fetchModels() {
     if (!ids.length) throw new Error("no models returned");
     fillModelList(ids);
     const cur = $("modelName").value;
-    const fastPrefs = ["openai-fast", "openai"];
-    const preferred =
-      ($("provider").value === "pollinations" && fastPrefs.map(p => ids.find(id => id === p)).find(Boolean)) ||
-      ids.find(id => /claude-sonnet|claude-3|llama-3|llama-4|gpt-4o/i.test(id)) ||
-      ids.find(id => !/qwen3\.8|deepseek-r1/i.test(id)) ||
-      ids[0];
-    if (!cur || !ids.includes(cur)) $("modelName").value = preferred;
+    if (!cur || !ids.includes(cur)) $("modelName").value = ids.includes("gpt-5.6-sol") ? "gpt-5.6-sol" : ids[0];
     saveSettings();
     toast("Models loaded — using " + $("modelName").value);
   } catch (e) {
-    if ($("provider").value === "pollinations") {
-      const ids = ["openai-fast", "openai"];
-      fillModelList(ids);
-      if (!ids.includes($("modelName").value)) $("modelName").value = ids[0];
-      saveSettings();
-      toast("Using free models — " + $("modelName").value);
-    } else {
-      toast("Couldn't list models: " + e.message);
-    }
+    toast("Could not list models: " + e.message);
   } finally {
     btn.disabled = false; btn.textContent = "Get";
   }
@@ -876,6 +696,8 @@ const messagesEl = $("messages");
 let conversation = [];
 let abortCtrl = null;
 let sending = false;
+let autoTestDepth = 0;
+let __lastOkReply = null;
 let activeReq = 0;
 let welcomeHidden = false;
 
@@ -895,13 +717,7 @@ try {
 function persistChats() {
   const slim = chats.slice(0, 30).map(c => ({
     id: c.id, title: c.title, updatedAt: c.updatedAt,
-    messages: (c.messages || []).slice(-60).map(m => {
-      const o = { role: m.role, content: m.content };
-      if (m.img && m.img.length < 3000) o.img = m.img;
-      if (m.thumb) o.thumb = m.thumb;
-      if (m.gen) o.gen = true;
-      return o;
-    })
+    messages: (c.messages || []).slice(-60).map(m => ({ role: m.role, content: m.content }))
   }));
   try {
     localStorage.setItem("lm_chats", JSON.stringify(slim));
@@ -915,39 +731,12 @@ function persistChats() {
     }
   }
 }
-function makeThumb(dataUrl, maxDim) {
-  return new Promise((resolve) => {
-    try {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const s = Math.min(1, (maxDim || 320) / Math.max(img.width || 1, img.height || 1));
-          const cv = document.createElement("canvas");
-          cv.width = Math.max(1, Math.round(img.width * s));
-          cv.height = Math.max(1, Math.round(img.height * s));
-          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-          resolve(cv.toDataURL("image/jpeg", 0.7));
-        } catch (e) { resolve(null); }
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    } catch (e) { resolve(null); }
-  });
-}
-async function attachThumb(msg, dataUrl) {
-  if (!msg || !dataUrl || dataUrl.length < 3000) return;
-  try {
-    const t = await makeThumb(dataUrl, 320);
-    if (t) { msg.thumb = t; persistChats(); }
-  } catch (e) {}
-}
 function apiMessages(limit) {
   const all = conversation.filter(m => m && m.content).map(m => ({ role: m.role, content: m.content }));
   return limit ? all.slice(-limit) : all;
 }
 function currentChat() { return chats.find(c => c.id === currentChatId) || null; }
 function newChat() {
-  endCall(true); stopSpeaking();
   const c = { id: "c" + Date.now().toString(36), title: "New chat", messages: [], updatedAt: Date.now() };
   chats.unshift(c);
   currentChatId = c.id;
@@ -970,7 +759,6 @@ function saveCurrentChat() {
 function loadChat(id) {
   const c = chats.find(x => x.id === id);
   if (!c) return;
-  endCall(true); stopSpeaking();
   currentChatId = id;
   conversation = c.messages || [];
   c.messages = conversation;
@@ -984,28 +772,7 @@ function loadChat(id) {
     conversation.forEach(m => {
       const b = addMessage(m.role === "user" ? "user" : "bot");
       if (m.role === "user") {
-        const src = m.img || m.thumb;
-        if (src) {
-          b.innerHTML = "";
-          const th = document.createElement("img");
-          th.className = "attached"; th.src = src; th.alt = "photo";
-          b.appendChild(th);
-          const cap = document.createElement("div");
-          cap.textContent = m.content;
-          b.appendChild(cap);
-        } else { b.textContent = m.content; }
-      } else if (m.gen) {
-        if (m.img) {
-          b.innerHTML = "";
-          const gi = document.createElement("img");
-          gi.className = "gen"; gi.src = m.img; gi.alt = m.content || "generated image";
-          b.appendChild(gi);
-          const gc = document.createElement("div");
-          gc.textContent = m.content || "";
-          b.appendChild(gc);
-        } else {
-          b.innerHTML = "<span class='sys'>\uD83D\uDDBC\uFE0F Generated image unavailable after reload</span>";
-        }
+        b.textContent = m.content;
       } else { appendStreaming(b, m.content); }
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -1075,7 +842,6 @@ function renderThrottled(bubble, text) {
     if (!bubble.isConnected) return;
     bubble.innerHTML = renderMarkdown(text);
     sanitizeRendered(bubble);
-    ensureReplay(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   } else {
     clearTimeout(__renderTimer);
@@ -1084,7 +850,6 @@ function renderThrottled(bubble, text) {
       if (!bubble.isConnected) return;
       bubble.innerHTML = renderMarkdown(bubble._rawText || "");
       sanitizeRendered(bubble);
-      ensureReplay(bubble);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }, 160);
   }
@@ -1095,23 +860,200 @@ function appendStreaming(bubble, text) {
   bubble.innerHTML = renderMarkdown(text);
   sanitizeRendered(bubble);
   bubble.querySelectorAll("pre code").forEach(applyHighlight);
-  ensureReplay(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function ensureReplay(bubble) {
-  if (bubble.querySelector(".replay-btn")) return;
-  const rp = document.createElement("button");
-  rp.className = "replay-btn"; rp.title = "Read aloud"; rp.textContent = "🔊";
-  rp.onclick = (ev) => {
-    ev.stopPropagation();
-    const raw = bubble._rawText || "";
-    if (!raw.trim()) return;
-    if (typeof callActive === "undefined" || !callActive) stopSpeaking();
-    speakText(raw, null);
-  };
-  bubble.insertBefore(rp, bubble.firstChild);
+// ---------- Sandboxed code runner: RUN button on ```js blocks, PREVIEW on ```html ----------
+const RUN_JS_LANG = /language-(?:js|javascript|node|mjs|cjs)(?:\s|$)/i;
+const RUN_HTML_LANG = /language-html(?:\s|$)/i;
+const RUN_HARNESS = '<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\';"></head><body><script>\n' +
+'var __logs=[];\n' +
+'function __fmt(v){try{if(typeof v==="string")return v;if(v instanceof Error)return v.stack||String(v);return JSON.stringify(v);}catch(e){try{return String(v);}catch(_){return "[object]";}}}\n' +
+'["log","info","warn","error"].forEach(function(m){console[m]=function(){__logs.push({m:m,t:Array.prototype.slice.call(arguments).map(__fmt).join(" ")});};});\n' +
+'window.alert=window.confirm=window.prompt=function(){};\n' +
+'window.addEventListener("message",function(ev){\n' +
+'var t0=Date.now(),out={__hakimiRun:1,id:ev.data.id,logs:[],error:null,ret:null,ms:0};__logs=[];\n' +
+'try{var r=new Function(ev.data.code+"\\n//# sourceURL=hakimi-run.js")();out.ret=(r===undefined?null:__fmt(r));}\n' +
+'catch(e){out.error=(e&&e.stack)||String(e);}\n' +
+'out.logs=__logs;out.ms=Date.now()-t0;ev.source.postMessage(out,"*");});\n' +
+'<\/script></body></html>';
+let __runSeq = 0;
+const __runJobs = {};
+window.addEventListener("message", (ev) => {
+  const d = ev.data;
+  if (!d || d.__hakimiRun !== 1 || !__runJobs[d.id]) return;
+  const job = __runJobs[d.id];
+  if (ev.source !== job.frame.contentWindow) return;
+  delete __runJobs[d.id];
+  clearTimeout(job.timer);
+  try { job.frame.remove(); } catch (e) {}
+  job.btn.disabled = false; job.btn.textContent = "\u25B6 run";
+  renderRunOut(job.out, d, false);
+});
+function runOutEl(pre) {
+  const nx = pre.nextSibling;
+  if (nx && nx.classList && nx.classList.contains("run-out")) return nx;
+  const out = document.createElement("div");
+  out.className = "run-out";
+  pre.parentElement.insertBefore(out, pre.nextSibling);
+  return out;
 }
+function escRun(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function renderRunOut(out, d, timeout) {
+  if (timeout) { out.innerHTML = '<div class="rl-error">\u23F1 timed out after 6s — infinite loop? The run was killed.</div>'; return; }
+  let h = "";
+  (d.logs || []).slice(0, 200).forEach(l => { h += '<div class="rl-' + l.m + '">' + escRun(l.t) + '</div>'; });
+  if ((d.logs || []).length > 200) h += '<div class="rl-meta">\u2026 ' + (d.logs.length - 200) + ' more lines</div>';
+  if (d.error) h += '<div class="rl-error">' + escRun(String(d.error).slice(0, 2000)) + '</div>';
+  else if (d.ret !== null && d.ret !== undefined) h += '<div class="rl-ret">= ' + escRun(String(d.ret).slice(0, 2000)) + '</div>';
+  if (!h) h = '<div class="rl-meta">(no output — try console.log something)</div>';
+  h += '<div class="rl-meta">done in ' + d.ms + ' ms · sandboxed, no network</div>';
+  out.innerHTML = h;
+}
+function runJsBlock(pre, code, btn) {
+  const out = runOutEl(pre);
+  if (pre._runId && __runJobs[pre._runId]) {
+    const old = __runJobs[pre._runId];
+    delete __runJobs[pre._runId];
+    clearTimeout(old.timer);
+    try { old.frame.remove(); } catch (e) {}
+  }
+  const id = "r" + (++__runSeq);
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.style.display = "none";
+  frame.srcdoc = RUN_HARNESS;
+  out.innerHTML = '<div class="rl-meta">running\u2026 (6s limit)</div>';
+  btn.disabled = true; btn.textContent = "\u2026";
+  document.body.appendChild(frame);
+  const job = { frame, btn, out, timer: null };
+  __runJobs[id] = job; pre._runId = id;
+  job.timer = setTimeout(() => {
+    if (!__runJobs[id]) return;
+    delete __runJobs[id];
+    try { frame.remove(); } catch (e) {}
+    btn.disabled = false; btn.textContent = "\u25B6 run";
+    if (out.isConnected) renderRunOut(out, null, true);
+  }, 6000);
+  frame.onload = () => {
+    if (!__runJobs[id]) return;
+    try { frame.contentWindow.postMessage({ id, code: String(code).slice(0, 200000) }, "*"); }
+    catch (e) {
+      delete __runJobs[id]; clearTimeout(job.timer);
+      try { frame.remove(); } catch (_) {}
+      btn.disabled = false; btn.textContent = "\u25B6 run";
+      renderRunOut(out, { logs: [], error: String(e), ret: null, ms: 0 }, false);
+    }
+  };
+}
+function previewHtmlBlock(pre, code, btn) {
+  const nx = pre.nextSibling;
+  if (nx && nx.classList && nx.classList.contains("run-preview")) {
+    const hidden = nx.style.display === "none";
+    nx.style.display = hidden ? "" : "none";
+    btn.textContent = hidden ? "\uD83D\uDC41 hide" : "\uD83D\uDC41 preview";
+    return;
+  }
+  const pv = document.createElement("iframe");
+  pv.className = "run-preview";
+  pv.setAttribute("sandbox", "allow-scripts");
+  pv.setAttribute("title", "HTML preview (sandboxed)");
+  pv.srcdoc = String(code).slice(0, 500000);
+  pre.parentElement.insertBefore(pv, pre.nextSibling);
+  btn.textContent = "\uD83D\uDC41 hide";
+}
+
+/* ---------- AI auto-test: runs its own JS, fixes failures, reports verdict ---------- */
+function autoTestOn() { try { return ($("autoTest").value || "on") !== "off"; } catch (e) { return true; } }
+function execJsAsync(code) {
+  return new Promise((resolve) => {
+    const id = "t" + (++__runSeq);
+    const frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.style.display = "none";
+    frame.srcdoc = RUN_HARNESS;
+    let done = false;
+    const to = setTimeout(() => {
+      if (done) return; done = true;
+      window.removeEventListener("message", onMsg);
+      try { frame.remove(); } catch (e) {}
+      resolve({ timeout: true });
+    }, 6000);
+    const onMsg = (ev) => {
+      const d = ev.data;
+      if (!d || d.__hakimiRun !== 1 || d.id !== id) return;
+      if (ev.source !== frame.contentWindow) return;
+      if (done) return; done = true;
+      clearTimeout(to);
+      window.removeEventListener("message", onMsg);
+      try { frame.remove(); } catch (e) {}
+      resolve(d);
+    };
+    window.addEventListener("message", onMsg);
+    document.body.appendChild(frame);
+    frame.onload = () => {
+      try { frame.contentWindow.postMessage({ id: id, code: String(code).slice(0, 200000) }, "*"); }
+      catch (e) {
+        if (done) return; done = true;
+        clearTimeout(to);
+        window.removeEventListener("message", onMsg);
+        try { frame.remove(); } catch (_) {}
+        resolve({ logs: [], error: String(e), ret: null, ms: 0 });
+      }
+    };
+  });
+}
+function setTestBadge(bubble, msg) {
+  if (!bubble._testBadge) {
+    bubble._testBadge = document.createElement("div");
+    bubble._testBadge.className = "test-badge";
+    bubble.appendChild(bubble._testBadge);
+  }
+  bubble._testBadge.innerHTML = msg;
+}
+async function autoTestReply(bubble, full, req) {
+  if (!autoTestOn()) return;
+  if (!bubble.isConnected) return;
+  const blocks = [];
+  const re = /```(?:js|javascript|node)\s*\n([\s\S]*?)```/gi;
+  let m;
+  while ((m = re.exec(full || "")) && blocks.length < 3) blocks.push(m[1]);
+  if (!blocks.length) {
+    if (/```(python|py|java|cpp|rb|php|go|rust|sql|ts|typescript|sh|bash)\b/i.test(full || "")) {
+      setTestBadge(bubble, "⚠️ Only JavaScript can be auto-tested here — check other languages by hand.");
+    }
+    return;
+  }
+  setTestBadge(bubble, "⏳ AI is testing its own code…");
+  const results = [];
+  for (const code of blocks) {
+    if (req !== activeReq || !bubble.isConnected) return;
+    results.push(await execJsAsync(code));
+  }
+  if (req !== activeReq || !bubble.isConnected) return;
+  const bad = results.find(r => r.timeout || r.error);
+  const totalMs = results.reduce((a, r) => a + (r.ms || 0), 0);
+  if (!bad) {
+    setTestBadge(bubble, "✅ AI tested it — runs clean" + (blocks.length > 1 ? " (" + blocks.length + " blocks)" : "") + " · " + totalMs + " ms");
+    return;
+  }
+  if (autoTestDepth >= 2) {
+    setTestBadge(bubble, "❌ Still failing after 2 auto-fixes — see error below. This code may need a real webpage to run in.");
+    const out = document.createElement("div");
+    out.className = "run-out";
+    bubble.appendChild(out);
+    if (bad.timeout) renderRunOut(out, null, true);
+    else renderRunOut(out, bad, false);
+    return;
+  }
+  autoTestDepth++;
+  setTestBadge(bubble, "🔧 Test failed — AI is fixing it (try " + autoTestDepth + "/2)…");
+  const errTxt = bad.timeout ? "TIMED OUT after 6 seconds (likely an infinite loop)" : String(bad.error || "unknown error").slice(0, 1500);
+  const fixPrompt = "Your JavaScript above FAILED when I ran it in a sandbox. Error:\n" + errTxt + "\n\nRules: output the FULL corrected code in one ```js block, complete and runnable, with console.log showing the result. The sandbox has no webpage DOM, no localStorage, no network, and a 6s limit. If the task truly needs a webpage, say so in one line instead of code.";
+  sendMessage(fixPrompt, { auto: true });
+}
+
+
 function applyHighlight(block) {
   if (window.hljs) { try { hljs.highlightElement(block); } catch (e) {} }
   const pre = block.parentElement;
@@ -1121,39 +1063,42 @@ function applyHighlight(block) {
     btn.onclick = () => { navigator.clipboard.writeText(block.textContent); btn.textContent = "copied!"; setTimeout(() => (btn.textContent = "copy"), 1200); };
     pre.insertBefore(btn, pre.firstChild);
   }
+  if (!pre.querySelector(".run-btn")) {
+    const lang = block.className || "";
+    if (RUN_JS_LANG.test(lang)) {
+      const rb = document.createElement("button");
+      rb.className = "run-btn"; rb.textContent = "\u25B6 run";
+      rb.onclick = () => runJsBlock(pre, block.textContent, rb);
+      pre.insertBefore(rb, pre.firstChild);
+    } else if (RUN_HTML_LANG.test(lang)) {
+      const rb = document.createElement("button");
+      rb.className = "run-btn"; rb.textContent = "\uD83D\uDC41 preview";
+      rb.onclick = () => previewHtmlBlock(pre, block.textContent, rb);
+      pre.insertBefore(rb, pre.firstChild);
+    }
+  }
 }
 
-async function sendMessage(textOverride) {
+async function sendMessage(textOverride, opts) {
   const input = $("userInput");
   const text = (textOverride != null ? textOverride : input.value).trim();
-  if (!text && !pendingImage) return;
-  stopSpeaking();
-  if (pendingImage && !imageMode) {
-    const img = pendingImage;
-    clearAttachment();
-    if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
-    sendVision(text, img);
-    return;
-  }
-  if (imageMode) {
-    if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
-    generateImage(text);
-    return;
-  }
+  if (!text) return;
   const _pcfg = PROVIDERS[$("provider").value] || {};
-  if (!_pcfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
+  if (!$("apiKey").value && !proxySet()) { toast("Open settings and paste your Aerolink key"); openSheet(); return; }
   if (!$("modelName").value) {
     const _def = PROVIDERS[$("provider").value] || {};
     if (_def.model) { $("modelName").value = _def.model; saveSettings(); }
     else { toast("Open settings → Get to pick a model"); openSheet(); return; }
   }
   if (sending) return; sending = true;
+  if (!opts || !opts.auto) autoTestDepth = 0;
   const myReq = ++activeReq;
   if (textOverride == null) { input.value = ""; input.style.height = "auto"; }
   const userBubble = addMessage("user");
   const myUserMsg = { role: "user", content: text };
   conversation.push(myUserMsg);
   userBubble.textContent = text;
+  if (opts && opts.auto) userBubble.innerHTML = "<span class='sys'>\uD83D\uDD27 Auto-fix " + autoTestDepth + "/2 \u2014 AI is correcting its own code\u2026</span>";
   const detected = detectScript(text);
   userBubble.parentElement.dir = RTL_LANGS.has(detected) ? "rtl" : "ltr";
 
@@ -1167,11 +1112,11 @@ async function sendMessage(textOverride) {
   const myCtrl = abortCtrl;
 
   const providerKey = $("provider").value;
-  const prov = PROVIDERS[providerKey] || PROVIDERS.puter; // FIX: safe fallback
+  const prov = PROVIDERS[providerKey] || PROVIDERS.aerolink;
   const model = $("modelName").value;
   const langPref = $("replyLang").value;
   const maxTok = Math.max(500, Math.min(16000, parseInt($("maxTokens").value, 10) || 6000));
-  const outTok = $("provider").value === "pollinations" ? Math.min(maxTok, 2000) : maxTok;
+  const outTok = maxTok;
   let sysText = SYSTEM_PROMPT;
   if (langPref === "auto") {
     if (detected !== "en") sysText += " The user is writing in " + detected + "; reply in that language.";
@@ -1181,25 +1126,7 @@ async function sendMessage(textOverride) {
 
   let full = "";
   try {
-    if (prov.kind === "puter") {
-      if (typeof puter === "undefined" || !puter.ai) throw new Error("Puter.js didn't load — check your connection");
-      const messages = [{ role: "system", content: sysText }].concat(apiMessages(24));
-      const resp = await puter.ai.chat(messages, { model: model, stream: true });
-      if (resp && typeof resp[Symbol.asyncIterator] === "function") {
-        for await (const part of resp) {
-          if (myReq !== activeReq) return;
-          if (part && part.text) full += part.text;
-          if (typing.parentElement) typing.remove();
-          renderThrottled(bubble, full);
-        }
-      } else {
-        if (myReq !== activeReq) return;
-        full += extractChatText(resp);
-      }
-      if (typing.parentElement) typing.remove();
-      appendStreaming(bubble, full);
-    } else {
-      const __freeChat = (providerKey === "pollinations" && prov.kind === "openai");
+      const __freeChat = false;
       const __models = [model].concat((prov.fallbacks || []).filter(f => f && f !== model));
       let res = null;
       let __streamDone = false;
@@ -1208,25 +1135,15 @@ async function sendMessage(textOverride) {
       for (let __mi = 0; __mi < __models.length; __mi++) {
         const __tm = __models[__mi];
         try {
-          if (prov.kind === "anthropic") {
-            res = await fetch(prov.base + "/messages", {
-              method: "POST",
-              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-              body: JSON.stringify({ model: model, max_tokens: maxTok, system: sysText, messages: apiMessages(24), stream: true }),
-              signal: abortCtrl.signal,
-            });
-          } else {
             const payload = [{ role: "system", content: sysText }].concat(apiMessages(24));
             res = await fetch(chatUrl(), {
               method: "POST",
               headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-              body: JSON.stringify({ model: __tm, messages: payload, stream: true, max_tokens: outTok, temperature: 0.85 }),
+              body: JSON.stringify({ model: __tm, messages: payload, stream: true, max_tokens: outTok, temperature: 0.2 }),
               signal: abortCtrl.signal,
             });
-          }
           if (!res.ok) {
-            if (res.status === 429 && $("provider").value === "pollinations") throw new Error("Free server is busy (1 msg per ~15s) — wait a few seconds and resend");
-            const errTxt = await res.text();
+                        const errTxt = await res.text();
             let msg = "HTTP " + res.status;
             try {
               const j = JSON.parse(errTxt);
@@ -1243,12 +1160,11 @@ async function sendMessage(textOverride) {
           let buffer = "";
           let __gotTok = false, __timedOut = false;
           const __wd = setTimeout(() => { if (!__gotTok) { __timedOut = true; try { reader.cancel(); } catch (e) {} } }, 25000);
-          const __isAnth = (prov.kind === "anthropic");
-          const __handleLine = (line) => {
+                    const __handleLine = (line) => {
             if (!line.startsWith("data:")) return;
             const data = line.slice(5).trim();
             if (!data || data === "[DONE]") return;
-            const delta = sseDelta(JSON.parse(data), __isAnth);
+            const delta = sseDelta(JSON.parse(data));
             if (delta) { full += delta; if (!__gotTok) { __gotTok = true; clearTimeout(__wd); } }
           };
           try {
@@ -1268,7 +1184,7 @@ async function sendMessage(textOverride) {
             if (buffer.trim()) { try { __handleLine(buffer.trim()); } catch (e) { if (e && e.__provErr) throw e; } }
           } catch (re) {
             const __netish = re && re.name !== "AbortError" && (re instanceof TypeError || /load failed|failed to fetch|network/i.test(re.message || ""));
-            if (!__netish || __plainTried || prov.kind === "anthropic") throw re;
+            if (!__netish || __plainTried) throw re;
             __plainTried = true;
             const res2 = await fetch(chatUrl(), {
               method: "POST",
@@ -1320,11 +1236,10 @@ async function sendMessage(textOverride) {
           res = null;
         }
       }
-      if (!__streamDone) throw new Error(providerKey === "pollinations" ? "Free server failed — try again in a bit" : "Request failed on every model — try again");
-    }
+      if (!__streamDone) throw new Error("Request failed — try again");
     conversation.push({ role: "assistant", content: full });
     saveCurrentChat();
-    if (isAutoRead() && full) speakText(full, detected);
+    __lastOkReply = { bubble: bubble, full: full, req: myReq };
   } catch (e) {
     if (myReq !== activeReq) return;
     if (typing.parentElement) typing.remove();
@@ -1338,15 +1253,9 @@ async function sendMessage(textOverride) {
       let m = (e && e.message) || "Unknown error";
       const low = String(m).toLowerCase();
       if (e && e.__status) {
-        m = ($("provider").value === "pollinations" && e.__status === 429)
-          ? "Free server is busy (1 msg per ~15s) — wait a few seconds and resend."
-          : httpLabel(e.__status);
+        m = httpLabel(e.__status);
       } else if (isNetErr(e)) {
-        m = $("provider").value === "pollinations"
-          ? "Couldn't reach the free server — check your internet and resend. (Free servers drop connections sometimes; resending usually works.)"
-          : "Network error reaching your provider — check your internet or try again.";
-      } else if (providerKey === "puter" && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied") || low.includes("login"))) {
-        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then send again. No API key needed.";
+        m = "Network error reaching Aerolink — check your internet or try again.";
       } else if (low.includes("too large") || low.includes("output token") || low.includes("max_tokens") || low.includes("otpm") || low.includes("context length") || low.includes("context_length")) {
         m = "This model's token limit was hit. Switch to a higher-limit model (settings → Get) or send a shorter message.";
       }
@@ -1356,152 +1265,16 @@ async function sendMessage(textOverride) {
     $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
     if (abortCtrl === myCtrl) abortCtrl = null;
     if (myReq === activeReq) sending = false;
+    if (myReq === activeReq && __lastOkReply && __lastOkReply.req === myReq) {
+      var __t = __lastOkReply; __lastOkReply = null;
+      setTimeout(function() { autoTestReply(__t.bubble, __t.full, __t.req); }, 0);
+    }
   }
 }
 
 $("sendBtn").onclick = () => sendMessage();
 
-/* ---------- Image mode (free via Puter) ---------- */
-$("imgBtn").onclick = () => {
-  imageMode = !imageMode;
-  $("imgBtn").classList.toggle("on", imageMode);
-  $("userInput").placeholder = imageMode ? "Describe an image to create…" : "Message HAKIMI";
-  if (!welcomeHidden) buildSuggestions();
-  toast(imageMode ? (pendingImage ? "Image mode — describe the edit, then send" : "Image mode ON — describe a picture, or attach a photo to edit") : "Chat mode — back to text");
-};
-
-function pollinationsImageUrl(prompt) {
-  const seed = Math.floor(Math.random() * 1000000);
-  return "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
-    "?width=1024&height=1024&seed=" + seed + "&model=flux&nologo=true&private=true&referrer=hakimi";
-}
-function loadRemoteImage(url, signal) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const timer = setTimeout(() => { cleanup(); reject(new Error("Image server timed out — try again")); }, 120000);
-    const cleanup = () => { clearTimeout(timer); try { if (signal) signal.removeEventListener("abort", onAbort); } catch (e) {} };
-    const onAbort = () => { cleanup(); try { img.src = ""; } catch (e) {} const E = new Error("stopped"); E.name = "AbortError"; reject(E); };
-    img.onload = () => { cleanup(); resolve(img); };
-    img.onerror = () => { cleanup(); reject(new Error("Image server failed — try again")); };
-    if (signal) {
-      if (signal.aborted) { onAbort(); return; }
-      signal.addEventListener("abort", onAbort);
-    }
-    img.src = url;
-  });
-}
-
-async function generateImage(prompt) {
-  // New pictures = 100% free for everyone (Pollinations). Only EDITS use Puter.
-  if (sending) { toast("Already working — tap Stop first"); return; }
-  sending = true;
-  const myReq = ++activeReq;
-  abortCtrl = new AbortController();
-  const myCtrl = abortCtrl;
-  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "grid";
-  const doneUI = () => {
-    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
-    if (abortCtrl === myCtrl) abortCtrl = null;
-    if (myReq === activeReq) sending = false;
-  };
-  const editSrc = pendingImage;
-  clearAttachment();
-  if (editSrc && (typeof puter === "undefined" || !puter.ai || !puter.ai.txt2img)) {
-    toast("Puter.js didn't load — check your connection");
-    doneUI();
-    return;
-  }
-  const userBubble = addMessage("user");
-  const myUserMsg = { role: "user", content: (editSrc ? "🎨✏️ " : "🎨 ") + prompt };
-  if (editSrc) {
-    myUserMsg.img = editSrc.dataUrl;
-    userBubble.innerHTML = "";
-    const th = document.createElement("img");
-    th.className = "attached"; th.src = editSrc.dataUrl; th.alt = "source photo";
-    userBubble.appendChild(th);
-    const cap = document.createElement("div");
-    cap.textContent = "🎨✏️ " + prompt;
-    userBubble.appendChild(cap);
-  } else {
-    userBubble.textContent = "🎨 " + prompt;
-  }
-  conversation.push(myUserMsg);
-  if (editSrc) { try { attachThumb(myUserMsg, editSrc.dataUrl); } catch (e0) {} }
-  const bubble = addMessage("bot");
-  const typing = document.createElement("div");
-  typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
-  bubble.appendChild(typing);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-  try {
-    let img = null, remoteUrl = null;
-    if (editSrc) {
-      const imgModel = $("imgModel").value || "gpt-image-2.5-flare";
-      img = await new Promise((resolve, reject) => {
-        const to = setTimeout(() => reject(new Error("Image edit timed out — try again")), 120000);
-        Promise.resolve(puter.ai.txt2img(prompt, { model: imgModel, input_image: editSrc.dataUrl })).then(
-          (r) => { clearTimeout(to); resolve(r); },
-          (e) => { clearTimeout(to); reject(e); }
-        );
-      });
-      if (myReq !== activeReq) return;
-    } else {
-      remoteUrl = pollinationsImageUrl(prompt);
-      img = await loadRemoteImage(remoteUrl, myCtrl.signal);
-      if (myReq !== activeReq) return;
-    }
-    if (!img) throw new Error("Image edit failed");
-    if (typing.parentElement) typing.remove();
-    bubble.innerHTML = "";
-    img.classList.add("gen");
-    img.alt = prompt;
-    bubble.appendChild(img);
-    try {
-      const a = document.createElement("a");
-      a.className = "img-dl";
-      a.textContent = "⬇ Save image";
-      a.href = img.src;
-      a.download = "hakimi-image.png";
-      a.target = "_blank";
-      a.rel = "noopener";
-      bubble.appendChild(a);
-    } catch (e2) {}
-    conversation.push({ role: "assistant", content: "[Generated image] " + prompt, img: remoteUrl || null, gen: true });
-    saveCurrentChat();
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  } catch (e) {
-    if (myReq !== activeReq) return;
-    if (typing.parentElement) typing.remove();
-    if (e && e.name === "AbortError") {
-      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
-      saveCurrentChat();
-    } else {
-      dropMsg(myUserMsg);
-      saveCurrentChat();
-      let m = "Image generation failed — try again";
-      if (e) {
-        if (typeof e.message === "string" && e.message) m = e.message;
-        else if (typeof e.error === "string" && e.error) m = e.error;
-        else if (e.error && e.error.message) m = e.error.message;
-      }
-      const low = String(m).toLowerCase();
-      if (isNetErr(e)) {
-        m = "Couldn't reach the image server — check your internet and try again.";
-      } else if (low.includes("timed out")) {
-        m = "Image server timed out — try again.";
-      } else if (low.includes("credit") || low.includes("balance") || low.includes("insufficient") || low.includes("payment") || low.includes("quota") || low.includes("out of")) {
-        m = "Puter credits are out — photo EDITS need Puter, but making new pictures is still 100% free. Remove the photo and just describe a picture.";
-      } else if (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied")) {
-        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once with a free Puter account, then try again.";
-      }
-      showError(bubble, m);
-    }
-  } finally {
-    doneUI();
-  }
-}
 function stopAll() {
-  if (callActive && callThinking) { try { interruptCall(); } catch (e) {} return; }
-  stopSpeaking();
   activeReq++;
   sending = false;
   try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
@@ -1511,290 +1284,8 @@ $("stopBtn").onclick = stopAll;
 $("userInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 $("userInput").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px"; });
 
-/* ---------- Voice mode (free, built into your browser — no key) ---------- */
-const SPEECH_LANGS = { en: "en-US", es: "es-ES", fr: "fr-FR", ar: "ar-SA", zh: "zh-CN", hi: "hi-IN", ru: "ru-RU", pt: "pt-BR", de: "de-DE", ja: "ja-JP", ko: "ko-KR", he: "he-IL", fa: "fa-IR", ur: "ur-PK", ps: "ps-AF" };
-function speechLangFor(detected) {
-  const pref = $("replyLang").value;
-  const code = (pref && pref !== "auto") ? pref : (detected || "en");
-  return SPEECH_LANGS[code] || "en-US";
-}
 
-function cleanForSpeech(text) {
-  if (!text) return "";
-  return text
-    .replace(/```[\s\S]*?```/g, " code snippet. ")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^>\s?/gm, "")
-    .replace(/(\*\*|__)(.*?)\1/g, "$2")
-    .replace(/(\*|_)(.*?)\1/g, "$2")
-    .replace(/~~(.*?)~~/g, "$1")
-    .replace(/[*_~`>#|]/g, "")
-    .replace(/https?:\/\/\S+/g, "link")
-    .replace(/[{}[\]()]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([.,!?;:])/g, "$1")
-    .trim()
-    .slice(0, 1200);
-}
 
-function stopSpeaking() {
-  speechGen++;
-  sysGen++;
-  sysQ.length = 0;
-  try { if ("speechSynthesis" in window) speechSynthesis.cancel(); } catch (e) {}
-  try { stopEleven(); } catch (e2) {}
-}
-let elevenAudio = null;
-let speechGen = 0;
-let elevenQ = [];
-let elevenBusy = false;
-let elevenQGen = 0;
-let sysQ = [];
-let sysBusy = false;
-let sysGen = 0;
-function useEleven() {
-  try { return ($("ttsEngine") || {}).value === "eleven" && (((($("elevenKey") || {}).value || "").trim().length > 10) || proxySet()); } catch (e) { return false; }
-}
-function toggleEleven() {
-  const on = ($("ttsEngine") || {}).value === "eleven";
-  const f = $("elevenField");
-  if (f) f.style.display = on ? "flex" : "none";
-}
-function chosenSystemVoice(lang) {
-  try {
-    const want = ($("voicePick") || {}).value || "auto";
-    if (want !== "auto" && "speechSynthesis" in window) {
-      const vs = speechSynthesis.getVoices() || [];
-      const hit = vs.find(v => (v.voiceURI || v.name) === want);
-      if (hit) return hit;
-    }
-  } catch (e) {}
-  return voiceFor(lang);
-}
-function refreshVoiceList() {
-  try {
-    const sel = $("voicePick");
-    if (!sel || !("speechSynthesis" in window)) return;
-    const keep = localStorage.getItem("lm_voice") || sel.value || "auto";
-    const vs = speechSynthesis.getVoices() || [];
-    sel.innerHTML = "";
-    const auto = document.createElement("option");
-    auto.value = "auto"; auto.textContent = "Auto (recommended)";
-    sel.appendChild(auto);
-    vs.forEach(v => {
-      const o = document.createElement("option");
-      o.value = (v.voiceURI || v.name || "").replace(/"/g, "");
-      o.textContent = (v.name || "") + " — " + (v.lang || "");
-      sel.appendChild(o);
-    });
-    sel.value = keep;
-    if (sel.value !== keep) sel.value = "auto";
-  } catch (e) {}
-}
-async function elevenPlayOnce(text) {
-  const key = ((($("elevenKey") || {}).value) || "").trim();
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 25000);
-  elevenSpeak._ctrl = ctrl;
-  try {
-    const headers = { "Content-Type": "application/json" };
-    if (key) headers["xi-api-key"] = key;
-    const res = await fetch(elevenEndpoint(), {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({ text: (text || "").slice(0, 2000), model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
-      signal: ctrl.signal
-    });
-    clearTimeout(timer);
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    if (!blob || !blob.size) return false;
-    const url = URL.createObjectURL(blob);
-    const a = new Audio(url);
-    elevenAudio = a;
-    return await new Promise((resolve) => {
-      let settled = false;
-      const fin = (ok) => {
-        if (settled) return;
-        settled = true;
-        try { URL.revokeObjectURL(url); } catch (e) {}
-        if (elevenAudio === a) elevenAudio = null;
-        resolve(ok);
-      };
-      a.onended = () => fin(true);
-      a.onerror = () => fin(false);
-      try { a.play().catch(() => fin(false)); } catch (e) { fin(false); }
-    });
-  } catch (e) {
-    clearTimeout(timer);
-    return false;
-  } finally {
-    if (elevenSpeak._ctrl === ctrl) elevenSpeak._ctrl = null;
-  }
-}
-function pumpEleven() {
-  if (elevenBusy) return;
-  const job = elevenQ.shift();
-  if (!job) return;
-  elevenBusy = true;
-  (async () => {
-    let ok = false;
-    try { ok = (job.gen === elevenQGen) ? await elevenPlayOnce(job.text) : false; }
-    catch (e) { ok = false; }
-    elevenBusy = false;
-    try { job.resolve(ok); } catch (e2) {}
-    pumpEleven();
-  })();
-}
-async function elevenSpeak(text, onend, fallback) {
-  const myGen = elevenQGen;
-  const ok = await new Promise((resolve) => { elevenQ.push({ text: text, gen: myGen, resolve: resolve }); pumpEleven(); });
-  if (myGen !== elevenQGen) return;
-  if (!ok && fallback) { try { fallback(); } catch (e) {} }
-  else if (onend) { try { onend(); } catch (e) {} }
-}
-function stopEleven() {
-  elevenQGen++;
-  const dropped = elevenQ.splice(0);
-  dropped.forEach(j => { try { j.resolve(false); } catch (e) {} });
-  try { if (elevenSpeak._ctrl) elevenSpeak._ctrl.abort(); } catch (e) {}
-  elevenSpeak._ctrl = null;
-  try { if (elevenAudio) { elevenAudio.pause(); elevenAudio.src = ""; } } catch (e) {}
-  elevenAudio = null;
-}
-
-function isAutoRead() { return $("autoRead").value === "on"; }
-
-/* ---------- Voice picker: best natural (prefer male) voice ---------- */
-let cachedVoice = null;
-function pickVoice(lang) {
-  try {
-    if (!("speechSynthesis" in window)) return null;
-    const vs = speechSynthesis.getVoices() || [];
-    if (!vs.length) return null;
-    const want = (lang || "en-US").toLowerCase().split("-")[0];
-    const pool = vs.filter(v => (v.lang || "").toLowerCase().split("-")[0] === want);
-    const banned = ["fred", "pipe organ", "bells", "cellos", "junior", "ralph", "whisper", "zarvox", "trinoids", "bubbles", "boing", "hysterical", "deranged", "echo", "ghost", "monster", "robot", "laugh", "singing", "cartoon"];
-    const isGood = (v) => !banned.some(b => ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase().includes(b));
-    const poolGood = (pool.length ? pool : vs).filter(isGood);
-    const list = poolGood.length ? poolGood : (pool.length ? pool : vs);
-    const maleHints = ["male", "daniel", "aaron", "david", "george", "gordon", "guy", "mark", "ryan", "oliver", "tom", "henry"];
-    const naturalHints = ["siri", "google", "neural", "natural", "premium", "enhanced", "online", "eloquence"];
-    const score = (v) => {
-      const n = ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase();
-      let s = 0;
-      if ((v.lang || "").toLowerCase() === (lang || "").toLowerCase()) s += 10;
-      if (naturalHints.some(h => n.includes(h))) s += 6;
-      if (v.localService) s += 2;
-      if (maleHints.some(h => n.includes(h))) s += 3;
-      return s;
-    };
-    list.sort((a, b) => score(b) - score(a));
-    return list[0] || null;
-  } catch (e) { return null; }
-}
-function voiceFor(lang) {
-  if (!cachedVoice) cachedVoice = pickVoice(lang);
-  if (cachedVoice && (cachedVoice.lang || "").split("-")[0].toLowerCase() !== (lang || "en").split("-")[0].toLowerCase()) {
-    cachedVoice = pickVoice(lang);
-  }
-  return cachedVoice;
-}
-try {
-  if ("speechSynthesis" in window) {
-    speechSynthesis.getVoices();
-    speechSynthesis.onvoiceschanged = () => { cachedVoice = null; try { speechSynthesis.getVoices(); } catch (e) {} try { refreshVoiceList(); } catch (e2) {} };
-  }
-} catch (e) {}
-
-function speakText(text, detected, onend) {
-  if (!useEleven() && !("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); return; }
-  stopSpeaking();
-  const clean = cleanForSpeech(text);
-  if (!clean) return;
-  const sysSpeak = () => {
-    if (!("speechSynthesis" in window)) { toast("This browser can't read aloud — try Chrome or Safari"); if (onend) try { onend(); } catch (e) {} return; }
-    sysEnqueue(clean, detected, onend || null);
-  };
-  if (useEleven()) elevenSpeak(clean, onend, sysSpeak);
-  else sysSpeak();
-}
-
-/* ---------- Call mode: live voice conversation ---------- */
-let callActive = false;
-let callRecog = null;
-let callThinking = false;
-let callGen = 0;
-let callListenGen = 0;
-let callSilence = 0;
-let pendingCallUserMsg = null;
-
-function setCallStatus(t) { const el = $("callStatus"); if (el) el.textContent = t; }
-function setCallTranscript(t) { const el = $("callTranscript"); if (el) el.textContent = t; }
-
-function speakChunk(text, detected, onend) {
-  let __dFired = false;
-  const done = () => { if (__dFired) return; __dFired = true; if (onend) try { onend(); } catch (e) {} };
-  if (useEleven()) { elevenSpeak(text, done, () => sysChunk(text, detected, done)); return; }
-  sysChunk(text, detected, done);
-}
-function sysPlayOnce(text, detected, done) {
-  let finished = false;
-  let attemptId = 0;
-  const finish = () => { if (finished) return; finished = true; try { done(); } catch (e) {} };
-  try {
-    if (!("speechSynthesis" in window)) { finish(); return; }
-    const lang = speechLangFor(detected);
-    const rate = parseFloat((($("voiceRate") || {}).value) || "1");
-    const mkUtter = (myAttempt) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = lang;
-      u.rate = isNaN(rate) ? 1 : rate;
-      u.pitch = 1;
-      try { const vv = chosenSystemVoice(lang); if (vv) u.voice = vv; } catch (e2) {}
-      u.onend = () => { if (myAttempt === attemptId) finish(); };
-      u.onerror = () => { if (myAttempt === attemptId) finish(); };
-      return u;
-    };
-    const attempt = (isRetry) => {
-      if (finished) return;
-      const myAttempt = ++attemptId;
-      try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e3) {}
-      if (isRetry) { try { speechSynthesis.cancel(); } catch (e4) {} }
-      speechSynthesis.speak(mkUtter(myAttempt));
-      setTimeout(() => {
-        if (finished || myAttempt !== attemptId) return;
-        let alive = false;
-        try { alive = !!(speechSynthesis.speaking || speechSynthesis.pending); } catch (e5) {}
-        if (alive) return;
-        if (isRetry) { finish(); return; }
-        attempt(true);
-      }, 1800);
-    };
-    attempt(false);
-  } catch (e) { finish(); }
-}
-function pumpSys() {
-  if (sysBusy) return;
-  const job = sysQ.shift();
-  if (!job) return;
-  sysBusy = true;
-  sysPlayOnce(job.text, job.detected, () => {
-    sysBusy = false;
-    if (job.gen === sysGen && job.onend) { try { job.onend(); } catch (e) {} }
-    pumpSys();
-  });
-}
-function sysEnqueue(text, detected, onend) {
-  sysQ.push({ text: text, detected: detected, onend: onend || null, gen: sysGen });
-  pumpSys();
-}
-function sysChunk(text, detected, onend) {
-  sysEnqueue(text, detected, onend);
-}
 function pullSentences(buf) {
   const out = [];
   const re = /[^.!?。！？]+[.!?。！？]+/g;
@@ -1803,628 +1294,18 @@ function pullSentences(buf) {
   return { sentences: out.filter(s => s.length > 1), rest: buf.slice(last) };
 }
 
-function startCall() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast("Live calls need Chrome, Edge, or Safari"); return; }
-  if (!("speechSynthesis" in window)) { toast("This browser can't speak — try Chrome or Safari"); return; }
-  if (callActive) return;
-  const _ccfg = PROVIDERS[$("provider").value] || {};
-  if (!_ccfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
-  if ($("provider").value === "puter" && (typeof puter === "undefined" || !puter.ai)) { toast("Puter.js didn't load — check your connection"); return; }
-  if (imageMode) {
-    imageMode = false;
-    $("imgBtn").classList.remove("on");
-    $("userInput").placeholder = "Message HAKIMI";
-    if (!welcomeHidden) buildSuggestions();
-  }
-  stopSpeaking();
-  try {
-    if ("speechSynthesis" in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); }
-  } catch (e) {}
-  try {
-    const unlock = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
-    unlock.volume = 0.01;
-    const pr = unlock.play();
-    if (pr && pr.catch) pr.catch(() => {});
-  } catch (e2) {}
-  callActive = true;
-  callThinking = false;
-  callGen++;
-  $("callOverlay").classList.add("open");
-  $("micBtn").classList.add("on");
-  setCallStatus("Listening…");
-  setCallTranscript("Say something — I'm listening.");
-  callListen();
-}
 
-function endCall(silent) {
-  if (!callActive) return;
-  callActive = false;
-  callThinking = false;
-  callGen++;
-  callListenGen++;
-  elevenQGen++;
-  try { if (callRecog) { callRecog.onresult = null; callRecog.onend = null; callRecog.onerror = null; } } catch (e) {}
-  try { if (callRecog) callRecog.abort(); } catch (e) {}
-  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
-  abortCtrl = null;
-  callRecog = null;
-  pendingCallUserMsg = null;
-  stopSpeaking();
-  $("callOverlay").classList.remove("open");
-  $("micBtn").classList.remove("on");
-  try { saveCurrentChat(); } catch (e2) {}
-  if (!silent) toast("Call ended");
-}
 
-function recogLang() {
-  try {
-    const pref = ($("replyLang") || {}).value || "auto";
-    if (pref !== "auto" && SPEECH_LANGS[pref]) return SPEECH_LANGS[pref];
-  } catch (e) {}
-  return "en-US";
-}
-function callListen() {
-  if (!callActive || callThinking) return;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { endCall(true); toast("Voice input needs Chrome, Edge, or Safari"); return; }
-  try { if (callRecog) callRecog.abort(); } catch (e) {}
-  const myLG = ++callListenGen;
-  const r = new SR();
-  callRecog = r;
-  r.lang = recogLang();
-  r.interimResults = true;
-  r.continuous = false;
-  r.maxAlternatives = 1;
-  setCallStatus(callSilence >= 3 ? "Still listening… (say something!)" : "Listening…");
-  let gotFinal = false;
-  r.onresult = (ev) => {
-    if (myLG !== callListenGen || !callActive) return;
-    let interim = "", fin = "";
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      if (ev.results[i].isFinal) fin += ev.results[i][0].transcript;
-      else interim += ev.results[i][0].transcript;
-    }
-    if (interim) { callSilence = 0; setCallTranscript("You: " + interim); }
-    if (fin && !gotFinal) {
-      gotFinal = true;
-      callSilence = 0;
-      callListenGen++;
-      try { r.stop(); } catch (e) {}
-      handleCallUtterance(fin.trim());
-    }
-  };
-  r.onend = () => {
-    if (myLG !== callListenGen || !callActive || callThinking || gotFinal) return;
-    callSilence++;
-    callListen();
-  };
-  r.onerror = (ev) => {
-    if (myLG !== callListenGen || !callActive || callThinking || gotFinal) return;
-    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
-      endCall(true);
-      setCallStatus("Microphone unavailable");
-      toast("Mic blocked — allow microphone access");
-    } else if (ev.error === "audio-capture") {
-      endCall(true);
-      setCallStatus("Microphone unavailable");
-      toast("Microphone unavailable on this device");
-    } else if (ev.error !== "aborted") {
-      callListenGen++;
-      const __lg = callListenGen;
-      setTimeout(() => { if (__lg === callListenGen && callActive && !callThinking) callListen(); }, 400);
-    }
-  };
-  try { r.start(); } catch (e) {
-    setTimeout(() => { if (myLG === callListenGen && callActive && !callThinking) callListen(); }, 250);
-  }
-}
 
-async function handleCallUtterance(text) {
-  if (!text) { if (callActive) callListen(); return; }
-  if (!callActive) return;
-  const myGen = callGen;
-  callThinking = true;
-  abortCtrl = new AbortController();
-  setCallStatus("Thinking…");
-  setCallTranscript("You: " + text);
-  const userBubble = addMessage("user");
-  userBubble.textContent = "📞 " + text;
-  pendingCallUserMsg = { role: "user", content: text };
-  conversation.push(pendingCallUserMsg);
-  const bubble = addMessage("bot");
-  const typing = document.createElement("div");
-  typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
-  bubble.appendChild(typing);
-  const detected = detectScript(text);
-  const langPref = $("replyLang").value;
-  let sysText = SYSTEM_PROMPT + " Reply in 1-3 SHORT sentences max, conversational (voice call — no lists, no code unless asked).";
-  if (langPref === "auto") {
-    if (detected !== "en") sysText += " The user is speaking " + detected + "; reply in that language.";
-  } else {
-    sysText += " Reply in " + langPref + ".";
-  }
-  const isPuter = $("provider").value === "puter";
-  const __callProv = PROVIDERS[$("provider").value] || {};
-  const __callSel = $("modelName").value || __callProv.model || "openai-fast";
-  const __callAnth = !isPuter && __callProv.kind === "anthropic";
-  const callTry = isPuter ? [__callSel] : [__callSel].concat((__callProv.fallbacks || []).filter(f => f && f !== __callSel));
-  let __callSwitched = false;
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  let full = "", pendingBuf = "";
-  let firstToken = false, streamDone = false, speechPending = 0, spokeAny = false;
-  const __isFreeCall = ($("provider").value === "pollinations");
-  let slowTimer = setTimeout(() => { if (callActive && myGen === callGen && !firstToken) setCallStatus(__isFreeCall ? "Still thinking… (free server can be slow)" : "Still thinking…"); }, 7000);
-  let safetyTimer = setTimeout(() => {
-    if (callActive && myGen === callGen && callThinking) {
-      callThinking = false;
-      abortCtrl = null;
-      try { stopSpeaking(); } catch (e) {}
-      callListen();
-    }
-  }, 90000);
-  const maybeFinish = () => {
-    if (!callActive || myGen !== callGen) return;
-    if (streamDone && speechPending === 0 && callThinking) {
-      callThinking = false;
-      abortCtrl = null;
-      callListen();
-    }
-  };
-  const queueSpeech = (t) => {
-    const clean = cleanForSpeech(t);
-    if (!clean || myGen !== callGen || !callActive) return;
-    spokeAny = true;
-    setCallStatus("Speaking… (tap interrupt to cut in)");
-    speechPending++;
-    speakChunk(clean, detected, () => { speechPending--; maybeFinish(); });
-  };
-  const onDelta = (delta) => {
-    if (!delta) return;
-    full += delta;
-    pendingBuf += delta;
-    if (!firstToken) { firstToken = true; if (slowTimer) clearTimeout(slowTimer); }
-    if (typing.parentElement) typing.remove();
-    appendStreaming(bubble, full);
-    const pulled = pullSentences(pendingBuf);
-    pendingBuf = pulled.rest;
-    pulled.sentences.forEach(queueSpeech);
-  };
-  try {
-    let fatalErr = null, did429 = false;
-    for (let round = 0; round < 2; round++) {
-      if (myGen !== callGen || !callActive) return;
-      for (const cm of callTry) {
-        if (myGen !== callGen || !callActive) return;
-        try {
-          if (isPuter) {
-            const resp = await puter.ai.chat([{ role: "system", content: sysText }].concat(apiMessages(8)), { model: cm, stream: true });
-            if (resp && typeof resp[Symbol.asyncIterator] === "function") {
-              for await (const part of resp) {
-                if (myGen !== callGen || !callActive) return;
-                if (part && part.text) onDelta(part.text);
-              }
-            } else {
-              onDelta(extractChatText(resp));
-            }
-          } else {
-            const __isA = __callAnth;
-            const __url = __isA ? ((__callProv.base || "") + "/messages") : chatUrl();
-            const __body = __isA
-              ? { model: cm, max_tokens: 400, system: sysText, messages: apiMessages(8), stream: true }
-              : { model: cm, messages: [{ role: "system", content: sysText }].concat(apiMessages(8)), stream: true, max_tokens: 400 };
-            const res = await fetch(__url, {
-              method: "POST",
-              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-              body: JSON.stringify(__body),
-              signal: abortCtrl.signal
-            });
-            if (!res.ok) {
-              const E = new Error(res.status === 429 && $("provider").value === "pollinations" ? "429 Free server is busy — retrying" : httpLabel(res.status));
-              E.__status = res.status;
-              throw E;
-            }
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let sbuf = "";
-            const __callLine = (line) => {
-              if (!line.startsWith("data:")) return;
-              const data = line.slice(5).trim();
-              if (!data || data === "[DONE]") return;
-              const d = sseDelta(JSON.parse(data), __isA);
-              if (d) onDelta(d);
-            };
-            while (true) {
-              if (myGen !== callGen || !callActive) { try { reader.cancel(); } catch (e0) {} return; }
-              const { value, done } = await reader.read();
-              if (done) break;
-              sbuf += decoder.decode(value, { stream: true });
-              let nl;
-              while ((nl = sbuf.indexOf("\n")) >= 0) {
-                const line = sbuf.slice(0, nl).trim();
-                sbuf = sbuf.slice(nl + 1);
-                try { __callLine(line); } catch (pe) { if (pe && pe.__provErr) throw pe; }
-              }
-            }
-            if (sbuf.trim()) { try { __callLine(sbuf.trim()); } catch (pe) { if (pe && pe.__provErr) throw pe; } }
-          }
-          if (__callSwitched) toast("Primary model unavailable — switched to fallback (" + cm + ")");
-          fatalErr = null;
-          break;
-        } catch (ce) {
-          if (ce.name === "AbortError") throw ce;
-          __callSwitched = true;
-          fatalErr = ce;
-        }
-      }
-      if (full || !fatalErr) break;
-      const m429 = /429|rate|busy/i.test((fatalErr && fatalErr.message) || "");
-      if (m429 && !did429) {
-        did429 = true;
-        setCallStatus("Free server is busy — retrying…");
-        setCallTranscript("One sec — the free server needs a breather…");
-        await sleep(9000);
-        if (myGen !== callGen || !callActive) return;
-        fatalErr = null;
-      } else break;
-    }
-    if (slowTimer) clearTimeout(slowTimer);
-    if (safetyTimer) clearTimeout(safetyTimer);
-    if (!full) throw (fatalErr || new Error("empty response"));
-  } catch (e) {
-    if (slowTimer) clearTimeout(slowTimer);
-    if (safetyTimer) clearTimeout(safetyTimer);
-    if (typing.parentElement) typing.remove();
-    if (e.name === "AbortError") {
-      dropMsg(pendingCallUserMsg);
-      pendingCallUserMsg = null;
-      saveCurrentChat();
-      return;
-    }
-    full = "";
-    let m = "Sorry — say that again";
-    if (e) {
-      if (typeof e.message === "string" && e.message) m = e.message;
-      else if (typeof e.error === "string" && e.error) m = e.error;
-      else if (e.error && e.error.message) m = e.error.message;
-    }
-    const low = String(m).toLowerCase();
-    if (isPuter && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied"))) {
-      showError(bubble, "Puter needs a free sign-in — allow the popup once, then call again.");
-      setCallTranscript("Sign-in needed — allow the popup, then call again.");
-      endCall(true);
-      toast("Allow the Puter sign-in popup, then start the call again");
-      return;
-    }
-    if (e && e.__status) {
-      m = ($("provider").value === "pollinations" && e.__status === 429)
-        ? "Free server is busy — one sec…"
-        : httpLabel(e.__status);
-    } else if (isNetErr(e)) {
-      m = "Connection failed — check your internet";
-    }
-    dropMsg(pendingCallUserMsg);
-    pendingCallUserMsg = null;
-    saveCurrentChat();
-    showError(bubble, m);
-    if (/429|rate|busy/i.test(String(m))) {
-      setCallTranscript("Free server is busy — one sec…");
-      setCallStatus("Retrying…");
-      speakChunk("The free server is busy. Give me a few seconds.", detected, null);
-      callThinking = true;
-      abortCtrl = null;
-      setTimeout(() => { if (!callActive || myGen !== callGen) return; callThinking = false; callListen(); }, 9000);
-      return;
-    }
-    setCallTranscript("Hmm, that failed — try again.");
-  }
-  if (typing.parentElement) typing.remove();
-  if (myGen !== callGen || !callActive) return;
-  if (full) {
-    appendStreaming(bubble, full);
-    conversation.push({ role: "assistant", content: full });
-    pendingCallUserMsg = null;
-    saveCurrentChat();
-    setCallTranscript("HAKIMI: " + full.slice(0, 200));
-    const tail = pendingBuf.trim();
-    if (tail) queueSpeech(tail);
-    streamDone = true;
-    if (!spokeAny) { callThinking = false; abortCtrl = null; callListen(); return; }
-    maybeFinish();
-  } else {
-    streamDone = true;
-    callThinking = false;
-    abortCtrl = null;
-    callListen();
-  }
-}
 
-$("micBtn").onclick = startCall;
-$("endCallBtn").onclick = () => endCall(false);
-function interruptCall() {
-  if (!callActive) return;
-  callGen++;
-  callListenGen++;
-  elevenQGen++;
-  try { if (callRecog) { callRecog.onresult = null; callRecog.onend = null; callRecog.onerror = null; } } catch (e) {}
-  try { if (callRecog) callRecog.abort(); } catch (e) {}
-  try { if (abortCtrl) abortCtrl.abort(); } catch (e) {}
-  abortCtrl = null;
-  stopSpeaking();
-  if (callThinking) {
-    dropMsg(pendingCallUserMsg);
-    pendingCallUserMsg = null;
-    saveCurrentChat();
-    const bots = messagesEl.querySelectorAll(".msg.bot:last-child .bubble");
-    const last = bots[bots.length - 1];
-    if (last && !last._rawText) last.innerHTML = "<span class='sys'>(interrupted)</span>";
-  }
-  callThinking = false;
-  callSilence = 0;
-  setCallStatus("Listening…");
-  setCallTranscript("Go ahead — I'm listening.");
-  callListen();
-}
-$("interruptBtn").onclick = interruptCall;
 
 // Auto-read toggle (mirrors the Settings switch)
-$("speakBtn").onclick = () => {
-  $("autoRead").value = isAutoRead() ? "off" : "on";
-  saveSettings();
-  $("speakBtn").classList.toggle("on", isAutoRead());
-  if (!isAutoRead()) stopSpeaking();
-  toast(isAutoRead() ? "HAKIMI will read replies aloud" : "Auto-read off");
-};
-
-/* ---------- Vision: ask about photos (free via Puter) ---------- */
-let pendingImage = null;
-
-function dataUrlFromImageFile(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      try {
-        const MAX = 1024;
-        let w = img.width, h = img.height;
-        const scale = Math.min(1, MAX / Math.max(w, h));
-        w = Math.round(w * scale); h = Math.round(h * scale);
-        const cv = document.createElement("canvas");
-        cv.width = w; cv.height = h;
-        cv.getContext("2d").drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        resolve(cv.toDataURL("image/jpeg", 0.85));
-      } catch (err) { URL.revokeObjectURL(url); reject(err); }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
-    img.src = url;
-  });
-}
-
-function showAttachPreview() {
-  const bar = $("attachBar");
-  if (!pendingImage) { bar.classList.remove("show"); return; }
-  $("attachThumb").src = pendingImage.dataUrl;
-  $("attachName").textContent = pendingImage.name || "photo.jpg";
-  bar.classList.add("show");
-}
-function clearAttachment() { pendingImage = null; $("fileInput").value = ""; showAttachPreview(); }
-
-$("attachBtn").onclick = () => $("fileInput").click();
-$("attachClear").onclick = clearAttachment;
-$("fileInput").addEventListener("change", async (ev) => {
-  const f = ev.target.files && ev.target.files[0];
-  if (!f) return;
-  if (!f.type.startsWith("image/")) { toast("Please pick an image file"); return; }
-  if (f.size > 12 * 1024 * 1024) { toast("Image too large — pick one under 12MB"); return; }
-  toast("Preparing photo…");
-  try {
-    const dataUrl = await dataUrlFromImageFile(f);
-    pendingImage = { dataUrl: dataUrl, name: f.name };
-    showAttachPreview();
-    if (imageMode) {
-      toast("Photo attached — describe how to edit it, then send");
-    } else {
-      toast("Photo attached — type a question or just send");
-    }
-  } catch (err) {
-    toast("Couldn't read that image — try another");
-  }
-});
-
-function extractChatText(resp) {
-  if (!resp) return "";
-  if (typeof resp === "string") return resp;
-  if (typeof resp.text === "string") return resp.text;
-  const c = resp.message && resp.message.content;
-  if (typeof c === "string") return c;
-  if (Array.isArray(c)) return c.map(b => (b && (b.text || b.content)) || "").join("");
-  if (c && typeof c === "object" && typeof c.text === "string") return c.text;
-  return "";
-}
-
-function visionModelsFor(pv, selected) {
-  const sel = selected || "";
-  if (pv === "pollinations") return [sel || "openai-fast", "openai"].filter((v, i, a) => v && a.indexOf(v) === i);
-  if (pv === "groq") return [sel || "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"].filter((v, i, a) => v && a.indexOf(v) === i);
-  if (pv === "openai") return [sel || "gpt-4o-mini"];
-  if (pv === "openrouter") return [sel || "openai/gpt-4o-mini"];
-  if (pv === "anthropic") return [sel || "claude-3-5-haiku-20241022"];
-  if (pv === "puter") return [sel || PROVIDERS.puter.model];
-  return [sel];
-}
-
-async function sendVision(question, img) {
-  const pv = $("provider").value;
-  const pcfg = PROVIDERS[pv] || {};
-  if (!pcfg.free && !$("apiKey").value && !proxySet()) { toast("Open settings and paste your API key"); openSheet(); return; }
-  if (sending) { toast("Already working — tap Stop first"); return; }
-  sending = true;
-  const myReq = ++activeReq;
-  abortCtrl = new AbortController();
-  const myCtrl = abortCtrl;
-  $("sendBtn").style.display = "none"; $("stopBtn").style.display = "grid";
-  const q = question || "What do you see in this image? Describe it in detail.";
-  const userBubble = addMessage("user");
-  userBubble.innerHTML = "";
-  const th = document.createElement("img");
-  th.className = "attached"; th.src = img.dataUrl; th.alt = img.name || "photo";
-  userBubble.appendChild(th);
-  const cap = document.createElement("div");
-  cap.textContent = q;
-  userBubble.appendChild(cap);
-  const myUserMsg = { role: "user", content: "[Photo: " + (img.name || "image") + "] " + q, img: img.dataUrl };
-  conversation.push(myUserMsg);
-  try { attachThumb(myUserMsg, img.dataUrl); } catch (e0) {}
-
-  const bubble = addMessage("bot");
-  const typing = document.createElement("div");
-  typing.className = "typing"; typing.innerHTML = "<span></span><span></span><span></span>";
-  bubble.appendChild(typing);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-
-  let full = "";
-  const langPref = $("replyLang").value;
-  let sysText = SYSTEM_PROMPT;
-  if (langPref !== "auto") sysText += " Reply in " + langPref + ".";
-  const modelsToTry = visionModelsFor(pv, $("modelName").value);
-  const isPuterV = (pv === "puter");
-  const isAnthV = (pcfg.kind === "anthropic");
-  let vTimedOut = false;
-  try {
-    let lastErr = null;
-    for (const vm of modelsToTry) {
-      if (myReq !== activeReq) return;
-      try {
-        if (isPuterV) {
-          if (typeof puter === "undefined" || !puter.ai) throw new Error("Puter.js didn't load — check your connection");
-          const resp = await new Promise((resolve, reject) => {
-            const to = setTimeout(() => reject(new Error("Vision timed out — try again")), 60000);
-            Promise.resolve(puter.ai.chat(q, img.dataUrl, { model: vm })).then(
-              (r) => { clearTimeout(to); resolve(r); },
-              (e) => { clearTimeout(to); reject(e); }
-            );
-          });
-          if (myReq !== activeReq) return;
-          full = extractChatText(resp);
-          if (typing.parentElement) typing.remove();
-          appendStreaming(bubble, full);
-        } else {
-          let vUrl, vBody;
-          if (isAnthV) {
-            const pm = /^data:(image\/\w+);base64,(.*)$/.exec(img.dataUrl || "");
-            if (!pm) throw new Error("Couldn't read that image — try another");
-            vUrl = (pcfg.base || "") + "/messages";
-            vBody = {
-              model: vm, max_tokens: 1200, system: sysText,
-              messages: apiMessages(10).slice(0, -1).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image", source: { type: "base64", media_type: pm[1], data: pm[2] } }] }]),
-              stream: true
-            };
-          } else {
-            vUrl = chatUrl();
-            vBody = {
-              model: vm,
-              messages: [{ role: "system", content: sysText }].concat(apiMessages(10).slice(0, -1)).concat([{ role: "user", content: [{ type: "text", text: q }, { type: "image_url", image_url: { url: img.dataUrl } }] }]),
-              stream: true, max_tokens: 1200, temperature: 0.7
-            };
-          }
-          const res = await fetch(vUrl, {
-            method: "POST",
-            headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-            body: JSON.stringify(vBody),
-            signal: myCtrl.signal
-          });
-          if (!res.ok) {
-            const E = new Error(res.status === 400 ? "That model rejected the image request (it may not support photos)" : httpLabel(res.status));
-            E.__status = res.status;
-            throw E;
-          }
-          if (vm !== $("modelName").value && modelsToTry.length > 1) toast("Primary model unavailable — switched to fallback (" + vm + ")");
-          full = "";
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let vbuf = "", vGot = false;
-          const vwd = setTimeout(() => { if (!vGot) { vTimedOut = true; try { myCtrl.abort(); } catch (e) {} } }, 45000);
-          const vLine = (line) => {
-            if (!line.startsWith("data:")) return;
-            const data = line.slice(5).trim();
-            if (!data || data === "[DONE]") return;
-            const delta = sseDelta(JSON.parse(data), isAnthV);
-            if (delta) { full += delta; if (!vGot) { vGot = true; clearTimeout(vwd); } }
-          };
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            vbuf += decoder.decode(value, { stream: true });
-            let nl;
-            while ((nl = vbuf.indexOf("\n")) >= 0) {
-              const line = vbuf.slice(0, nl).trim();
-              vbuf = vbuf.slice(nl + 1);
-              try { vLine(line); } catch (pe) { if (pe && pe.__provErr) { clearTimeout(vwd); throw pe; } }
-            }
-            if (myReq !== activeReq) { clearTimeout(vwd); try { reader.cancel(); } catch (e) {} return; }
-            if (typing.parentElement) typing.remove();
-            renderThrottled(bubble, full);
-          }
-          clearTimeout(vwd);
-          if (vbuf.trim()) { try { vLine(vbuf.trim()); } catch (pe) { if (pe && pe.__provErr) throw pe; } }
-          appendStreaming(bubble, full);
-        }
-        if (!full) throw new Error("empty response");
-        lastErr = null;
-        break;
-      } catch (e2) {
-        if (e2 && e2.name === "AbortError") throw e2;
-        lastErr = e2;
-        full = "";
-      }
-    }
-    if (myReq !== activeReq) return;
-    if (!full) throw (lastErr || new Error("Vision failed"));
-    conversation.push({ role: "assistant", content: full });
-    saveCurrentChat();
-    if (isAutoRead()) speakText(full, null);
-  } catch (e) {
-    if (myReq !== activeReq) return;
-    if (typing.parentElement) typing.remove();
-    if (e && e.name === "AbortError" && !vTimedOut) {
-      bubble.innerHTML = "<span class='sys'>(stopped)</span>";
-      saveCurrentChat();
-    } else {
-      dropMsg(myUserMsg);
-      saveCurrentChat();
-      let m = "Couldn't analyze that photo — try another image";
-      if (e) {
-        if (typeof e.message === "string" && e.message) m = e.message;
-        else if (typeof e.error === "string" && e.error) m = e.error;
-        else if (e.error && e.error.message) m = e.error.message;
-      }
-      const low = String(m).toLowerCase();
-      if (vTimedOut) {
-        m = "Vision timed out — try again.";
-      } else if (e && e.__status) {
-        m = (pv === "pollinations" && e.__status === 429)
-          ? "Free server is busy (1 msg per ~15s) — wait a few seconds and resend."
-          : httpLabel(e.__status);
-      } else if (isNetErr(e)) {
-        m = pv === "pollinations" ? "Couldn't reach the free server — check your internet and resend." : "Network error reaching your provider — check your internet or try again.";
-      } else if (isPuterV && (low.includes("auth") || low.includes("sign in") || low.includes("permission") || low.includes("denied"))) {
-        m = "Puter needs a free sign-in to cover usage. Allow the popup and sign in once, then try again.";
-      }
-      showError(bubble, m);
-    }
-  } finally {
-    $("sendBtn").style.display = "grid"; $("stopBtn").style.display = "none";
-    if (abortCtrl === myCtrl) abortCtrl = null;
-    if (myReq === activeReq) sending = false;
-  }
-}
 
 /* ---------- Suggestions ---------- */
 function buildSuggestions() {
   const box = $("sugs");
   box.innerHTML = "";
-  (imageMode ? IMG_SUGGESTIONS : SUGGESTIONS).forEach(s => {
+  SUGGESTIONS.forEach(s => {
     const el = document.createElement("button");
     el.className = "sug"; el.textContent = s;
     el.onclick = () => sendMessage(s);
@@ -2441,7 +1322,7 @@ $("exportBtn").onclick = () => {
   toast("Chat exported");
 };
 $("clearChatBtn").onclick = () => confirmDialog("Clear conversation?", "This removes all messages from this session.", () => {
-  endCall(true); stopSpeaking(); conversation = []; const _cc = currentChat(); if (_cc) { _cc.messages = conversation; _cc.title = "New chat"; _cc.updatedAt = Date.now(); } messagesEl.innerHTML = ""; welcomeHidden = false; persistChats(); renderChatList();
+  conversation = []; const _cc = currentChat(); if (_cc) { _cc.messages = conversation; _cc.title = "New chat"; _cc.updatedAt = Date.now(); } messagesEl.innerHTML = ""; welcomeHidden = false; persistChats(); renderChatList();
   $("welcome").style.display = "flex"; toast("Conversation cleared");
 });
 
@@ -2454,24 +1335,18 @@ try {
 
 /* ---------- Boot ---------- */
 loadSettings();
-toggleEleven();
-refreshVoiceList();
-if (!localStorage.getItem("lm_v2free")) {
-  localStorage.setItem("lm_v2free", "1");
-  if ($("provider").value === "puter") {
-    $("provider").value = "pollinations";
-    $("modelName").value = PROVIDERS.pollinations.model;
-    saveSettings(); updateStatus(); toggleKeyField();
-    setTimeout(() => toast("Switched to Free Forever mode — no key, no sign-in"), 900);
-  }
+if (!localStorage.getItem("lm_v3aero")) {
+  localStorage.setItem("lm_v3aero", "1");
+  $("provider").value = "aerolink";
+  $("modelName").value = PROVIDERS.aerolink.model;
+  saveSettings(); updateStatus(); toggleKeyField();
 }
-$("speakBtn").classList.toggle("on", isAutoRead());
 applyOwner();
 if (!chats.length) newChat(); else loadChat(chats[0].id);
 buildSuggestions();
 updateStatus();
 toggleKeyField();
-if ($("apiKey").value || ((PROVIDERS[$("provider").value] || {}).free)) fetchModels();
+if ($("apiKey").value) fetchModels();
 </script>
 </body>
 </html>
