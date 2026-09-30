@@ -328,10 +328,10 @@ header h1 {
     </select>
   </div>
 
-  <div class="field" id="proxyField" style="display:none">
-    <label>API proxy (optional, for public sites)</label>
-    <input id="proxyBase" placeholder="https://your-server.com (empty = direct)" autocomplete="off" />
-    <p class="hint">Personal use: leave empty (keys stay in your browser). Public site: point this at YOUR backend that mirrors the provider's API paths and adds keys server-side — keys then never ship to browsers.</p>
+  <div class="field" id="proxyField">
+    <label>Proxy URL (required — your Cloudflare Worker)</label>
+    <input id="proxyBase" placeholder="https://your-worker.workers.dev" autocomplete="off" />
+    <p class="hint">REQUIRED: Aerolink blocks direct browser calls, so paste your free Cloudflare Worker URL above or messages will fail. Your key is only sent through your own worker.</p>
   </div>
 
   <div class="field" id="keyField">
@@ -478,7 +478,7 @@ function applyOwner() {
 /* ---------- API key field ---------- */
 function toggleKeyField() {
   $("keyField").style.display = "flex";
-  $("providerHint").innerHTML = "<b>Aerolink</b> = Codex-class code models. Paste your Aerolink API key above (trial keys work too), then tap Get to load models.";
+  $("providerHint").innerHTML = "<b>Aerolink</b> = Codex-class code models. Paste your Aerolink API key above (trial keys work too), paste your Worker URL in the Proxy field (REQUIRED — Aerolink blocks browsers directly), then tap Get.";
 }
 
 /* ---------- Auth headers ---------- */
@@ -533,13 +533,14 @@ $("proxyBase").addEventListener("input", () => { saveSettings(); updateStatus();
 $("autoTest").addEventListener("change", saveSettings);
 
 function proxySet() { try { return (($("proxyBase").value || "").trim().length > 0); } catch (e) { return false; } }
-function effBase(c) { return (c && c.base) || ""; }
+function effBase(c) { const px = (($("proxyBase") || {}).value || "").trim().replace(/\/+$/, ""); if (px && c && c.kind === "openai") return px; return (c && c.base) || ""; }
 function apiBase() { const p = $("provider").value; return effBase(PROVIDERS[p] || {}); }
 function chatUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.chatPath || "/chat/completions"); }
 function modelsUrl() { const p = $("provider").value; const c = PROVIDERS[p] || {}; return effBase(c) + (c.modelsPath || "/models"); }
 function updateStatus() {
   const st = $("status");
-  if (!$("apiKey").value ) { st.textContent = "Enter key"; st.classList.remove("ok"); }
+  if (!$("apiKey").value) { st.textContent = "Enter key"; st.classList.remove("ok"); }
+  else if (!proxySet()) { st.textContent = "Need proxy"; st.classList.remove("ok"); }
   else { st.textContent = "Ready"; st.classList.add("ok"); }
 }
 
@@ -660,7 +661,7 @@ function fillModelList(ids) {
 /* ---------- Fetch models ---------- */
 async function fetchModels() {
   const btn = $("fetchModelsBtn"); btn.disabled = true; btn.textContent = "…";
-  if (!$("apiKey").value ) { toast("Enter your Aerolink API key first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
+  if (!$("apiKey").value || !proxySet()) { toast("Enter your Aerolink key + proxy URL first"); openSheet(); btn.disabled = false; btn.textContent = "Get"; return; }
   try {
     const mCtrl = new AbortController();
     const mTo = setTimeout(() => { try { mCtrl.abort(); } catch (e) {} }, 15000);
@@ -1084,7 +1085,8 @@ async function sendMessage(textOverride, opts) {
   const text = (textOverride != null ? textOverride : input.value).trim();
   if (!text) return;
   const _pcfg = PROVIDERS[$("provider").value] || {};
-  if (!$("apiKey").value ) { toast("Open settings and paste your Aerolink key"); openSheet(); return; }
+  if (!$("apiKey").value) { toast("Open settings and paste your Aerolink key"); openSheet(); return; }
+  if (!proxySet()) { toast("Paste your Worker proxy URL in settings"); openSheet(); return; }
   if (!$("modelName").value) {
     const _def = PROVIDERS[$("provider").value] || {};
     if (_def.model) { $("modelName").value = _def.model; saveSettings(); }
@@ -1261,7 +1263,7 @@ async function sendMessage(textOverride, opts) {
       if (e && e.__status) {
         m = httpLabel(e.__status);
       } else if (isNetErr(e)) {
-        m = "Network error reaching Aerolink — check your internet or try again.";
+        m = "Could not reach Aerolink through the proxy — check the proxy URL in settings.";
       } else if (low.includes("too large") || low.includes("output token") || low.includes("max_tokens") || low.includes("otpm") || low.includes("context length") || low.includes("context_length")) {
         m = "This model's token limit was hit. Switch to a higher-limit model (settings → Get) or send a shorter message.";
       }
@@ -1341,7 +1343,6 @@ try {
 
 /* ---------- Boot ---------- */
 loadSettings();
-$("proxyBase").value = ""; try { localStorage.removeItem("lm_proxy"); } catch (e) {}
 if (!localStorage.getItem("lm_v3aero")) {
   localStorage.setItem("lm_v3aero", "1");
   $("provider").value = "aerolink";
@@ -1355,5 +1356,5 @@ updateStatus();
 toggleKeyField();
 if ($("apiKey").value) fetchModels();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a430795b694c97b9',t:'MTc5MDc0MjQzNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
